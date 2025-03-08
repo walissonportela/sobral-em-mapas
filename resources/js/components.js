@@ -556,7 +556,8 @@ function handleServerResponse(responseData) {
         if (sidebar) {
             sidebar.classList.add("open"); // Certifique-se de que essa classe abre o menu
         }
-
+         // **Verifica se `mapType` é uma categoria ou subcategoria**
+         expandCategoryIfNeeded(mapType);
         // Percorre todas as camadas e encontra a que corresponde ao `map_type`
         let foundLayer = false;
         document.querySelectorAll(".layer-toggle").forEach(layerCheckbox => {
@@ -631,6 +632,62 @@ function expandCategoryAndSubcategory(layerCheckbox) {
         }
     }
 }
+// 🔹 NOVA FUNÇÃO: Expande categorias ou subcategorias automaticamente
+function expandCategoryIfNeeded(categoryName) {
+    // Função para normalizar texto (remover acentos, espaços e deixar minúsculo)
+    const normalizeText = (text) =>
+        text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-").toLowerCase();
+
+    // Criar os IDs normalizados
+    const categoryId = `cat-${normalizeText(categoryName)}`;
+    const subcategoryId = `subcat-${normalizeText(categoryName)}`;
+
+    console.log(`📂 Tentando expandir: Categoria -> ${categoryId} | Subcategoria -> ${subcategoryId}`);
+
+    // **Verificar se a subcategoria existe**
+    let subcategoryButton = document.querySelector(`button[data-bs-target="#${subcategoryId}"]`);
+    if (subcategoryButton) {
+        console.log(`📂 Subcategoria encontrada: ${subcategoryId}`);
+
+        // Encontrar a categoria principal da subcategoria
+        let parentAccordion = subcategoryButton.closest(".accordion-body").closest(".accordion-collapse");
+        if (parentAccordion) {
+            let parentCategoryButton = document.querySelector(`button[data-bs-target="#${parentAccordion.id}"]`);
+            if (parentCategoryButton) {
+                console.log(`📂 A subcategoria pertence à categoria: ${parentAccordion.id}`);
+
+                // **Expandir a categoria principal antes da subcategoria**
+                expandCategory(parentAccordion.id);
+            }
+        }
+
+        // Expandir a subcategoria
+        let subcategoryCollapse = document.getElementById(subcategoryId);
+        if (subcategoryCollapse && !subcategoryCollapse.classList.contains("show")) {
+            console.log(`📂 Expandindo subcategoria: ${subcategoryId}`);
+            subcategoryButton.click(); // Simula clique para abrir
+        }
+        return; // Finaliza aqui para evitar execução desnecessária
+    }
+
+    // **Se não for uma subcategoria, tenta expandir como categoria**
+    expandCategory(categoryId);
+}
+
+// **Função auxiliar para expandir categorias**
+function expandCategory(categoryId) {
+    let categoryButton = document.querySelector(`button[data-bs-target="#${categoryId}"]`);
+    if (categoryButton) {
+        let categoryCollapse = document.getElementById(categoryId);
+        if (categoryCollapse && !categoryCollapse.classList.contains("show")) {
+            console.log(`📂 Expandindo categoria: ${categoryId}`);
+            categoryButton.click(); // Simula clique para abrir
+        }
+    }
+}
+
+
+
 
 
 export function InitializeComponents() {

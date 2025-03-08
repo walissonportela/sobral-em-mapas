@@ -205,7 +205,7 @@ async function addWmsLayer(map, layerData) {
         }
     } catch (error) {
         console.error(`❌ ERRO FATAL ao carregar a camada ${layerData?.layer_name || "Desconhecida"}:`, error);
-        alert(`Erro ao carregar a camada. Verifique no GeoServer.`);
+       
     }
 }
 
