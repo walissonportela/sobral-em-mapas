@@ -566,8 +566,7 @@ function statistic() {
         .catch((error) => console.error("❌ Erro ao enviar estatísticas:", error));
     }
 
-    // **Envia estatísticas a cada 30 segundos**
-    setInterval(enviarEstatisticas, 30000);
+
 
     // Envia estatísticas finais ao sair da página
     window.addEventListener("beforeunload", enviarEstatisticas);
