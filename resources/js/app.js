@@ -46,4 +46,14 @@ import { initializeMap } from "./map";
         console.log("DOM completamente carregado."); // Log para garantir que o evento DOMContentLoaded foi acionado
         initializeApp();
     });
+
+    // Garante que o tooltip desapareça quando o mouse sair do botão
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(button => {
+        button.addEventListener('mouseleave', function () {
+            var tooltip = bootstrap.Tooltip.getInstance(this);
+            if (tooltip) {
+                tooltip.hide();
+            }
+        });
+    });
 })();

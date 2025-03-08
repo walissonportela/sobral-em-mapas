@@ -20,7 +20,7 @@
             @foreach($subcategories->groupBy(fn($layer) => $layer->getSubcategory() ?? 'Sem Subcategoria') as $subcategoryName => $subcategoryLayers)
                 <div class="accordion-item sub">
                     <h2 class="accordion-header sub">
-                        <button class="accordion-button sub collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#subcat-{{ Str::slug($subcategoryName) }}">
+                        <button class="accordion-button cat collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#subcat-{{ Str::slug($subcategoryName) }}">
                             {{ $subcategoryName }}
                         </button>
                     </h2>
