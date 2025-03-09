@@ -572,7 +572,31 @@ function statistic() {
     window.addEventListener("beforeunload", enviarEstatisticas);
 }
 
+async function removeAllWmsLayers() {
+    // Seleciona todos os checkboxes das camadas
+    document.querySelectorAll(".layer-toggle").forEach(checkbox => {
+        if (checkbox.checked) {
+            // Converte o atributo data-layer de volta para objeto JSON
+            const layerData = JSON.parse(checkbox.getAttribute("data-layer"));
 
+            // Remove a camada chamando toggleLayer com checked = false
+            toggleLayer(window.map, layerData, false);
+
+            // Desmarca o checkbox
+            checkbox.checked = false;
+            updateLegends(layerData, false);
+        }
+    });
+
+    console.log("✅ Todas as camadas WMS foram removidas.");
+}
+
+// Evento para o botão "Limpar Mapa"
+document.addEventListener("DOMContentLoaded", function () {
+    document.getElementById("btn-clear-map").addEventListener("click", function () {
+        removeAllWmsLayers();
+    });
+});
 
 
 
@@ -588,5 +612,6 @@ export function InitializeUI() {
     initializeExpandButton();
     enableSwipeToDeleteAccordion("accordionMapasAtivos");
     initializeActionButtons();
+    removeAllWmsLayers();
     
 }

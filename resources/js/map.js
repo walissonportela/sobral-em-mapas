@@ -244,8 +244,6 @@ async function removeWmsLayer(map, layerData) {
 }
 
 
-
-
 // Função para manipular camadas do mapa de fora do arquivo
 export function toggleLayer(map, layerName, shouldAdd) {
     // Verifica se a camada já está presente no mapa
