@@ -14,9 +14,11 @@ class Estatistica extends Model
         'ip_usuario',
         'mapas_selecionados',
         'tempo_total',
+        'recommended_map_activations', // Adicionando a nova coluna
     ];
 
     protected $casts = [
         'mapas_selecionados' => 'array',
+        'recommended_map_activations' => 'array', // Convertendo para JSON automaticamente
     ];
 }
