@@ -693,46 +693,113 @@ function expandCategory(categoryId) {
 }
 
 // 🔹 NOVA FUNÇÃO: Expande categorias ou subcategorias automaticamente
-function expandCategoryIfNeeded(categoryName) {
-    // Função para normalizar texto (remover acentos, espaços e deixar minúsculo)
+// 🔹 NOVA VERSÃO ROBUSTA: Expande categoria e subcategoria automaticamente com base no nome da camada
+function expandCategoryIfNeeded(layerName) {
+    console.log(`🕵️ Procurando camada com o nome: ${layerName}`);
+
+    let targetLayer = Array.from(document.querySelectorAll(".layer-toggle")).find(input => {
+        try {
+            let layerDataRaw = input.getAttribute("data-layer");
+            if (!layerDataRaw) return false;
+
+            // Decode de &quot; para aspas reais
+            layerDataRaw = layerDataRaw.replace(/&quot;/g, '"');
+
+            let layerData = JSON.parse(layerDataRaw);
+            if (typeof layerData === "string") {
+                layerData = JSON.parse(layerData);
+            }
+
+            if (!layerData.layer_name) return false;
+
+            return layerData.layer_name.toLowerCase() === layerName.toLowerCase();
+        } catch (e) {
+            console.warn("⚠️ Erro ao parsear data-layer:", e);
+            return false;
+        }
+    });
+
+    if (targetLayer) {
+        console.log(`✅ Camada encontrada no DOM! Expandindo categorias relacionadas...`);
+
+        // Encontra subcategoria
+        let subcategory = targetLayer.closest(".accordion-item.sub");
+        let category = targetLayer.closest(".accordion-item.cat");
+
+        if (subcategory) {
+            let subcategoryButton = subcategory.querySelector(".accordion-button");
+            let subcategoryId = subcategoryButton?.getAttribute("data-bs-target")?.replace("#", "");
+
+            if (subcategoryButton && subcategoryId) {
+                console.log(`📂 Subcategoria identificada: ${subcategoryId}`);
+
+                let subcategoryCollapse = document.getElementById(subcategoryId);
+                if (subcategoryCollapse && !subcategoryCollapse.classList.contains("show")) {
+                    console.log(`📂 Expandindo subcategoria: ${subcategoryId}`);
+                    subcategoryButton.click();
+                }
+            } else {
+                console.warn("⚠️ Botão ou ID da subcategoria não encontrado.");
+            }
+        }
+
+        if (category) {
+            let categoryButton = category.querySelector(".accordion-button");
+            let categoryId = categoryButton?.getAttribute("data-bs-target")?.replace("#", "");
+
+            if (categoryButton && categoryId) {
+                console.log(`📂 Categoria identificada: ${categoryId}`);
+
+                let categoryCollapse = document.getElementById(categoryId);
+                if (categoryCollapse && !categoryCollapse.classList.contains("show")) {
+                    console.log(`📂 Expandindo categoria: ${categoryId}`);
+                    categoryButton.click();
+                }
+            } else {
+                console.warn("⚠️ Botão ou ID da categoria não encontrado.");
+            }
+        }
+
+        return; // Já resolveu, não precisa fazer o fallback
+    }
+
+    // 🔄 Fallback: tenta normalizar como se fosse um ID de categoria/subcategoria
+    console.warn("❌ Nenhuma camada encontrada com o nome:", layerName);
+
     const normalizeText = (text) =>
         text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-").toLowerCase();
 
-    // Criar os IDs normalizados
-    const categoryId = `cat-${normalizeText(categoryName)}`;
-    const subcategoryId = `subcat-${normalizeText(categoryName)}`;
+    const categoryId = `cat-${normalizeText(layerName)}`;
+    const subcategoryId = `subcat-${normalizeText(layerName)}`;
 
-    console.log(`📂 Tentando expandir: Categoria -> ${categoryId} | Subcategoria -> ${subcategoryId}`);
+    console.log(`📂 Tentando fallback com IDs normalizados: Categoria -> ${categoryId} | Subcategoria -> ${subcategoryId}`);
 
-    // **Verificar se a subcategoria existe**
     let subcategoryButton = document.querySelector(`button[data-bs-target="#${subcategoryId}"]`);
     if (subcategoryButton) {
-        console.log(`📂 Subcategoria encontrada: ${subcategoryId}`);
+        console.log(`📂 Subcategoria encontrada via fallback: ${subcategoryId}`);
 
-        // Encontrar a categoria principal da subcategoria
-        let parentAccordion = subcategoryButton.closest(".accordion-body").closest(".accordion-collapse");
+        let parentAccordion = subcategoryButton.closest(".accordion-body")?.closest(".accordion-collapse");
         if (parentAccordion) {
             let parentCategoryButton = document.querySelector(`button[data-bs-target="#${parentAccordion.id}"]`);
             if (parentCategoryButton) {
                 console.log(`📂 A subcategoria pertence à categoria: ${parentAccordion.id}`);
-
-                // **Expandir a categoria principal antes da subcategoria**
                 expandCategory(parentAccordion.id);
             }
         }
 
-        // Expandir a subcategoria
         let subcategoryCollapse = document.getElementById(subcategoryId);
         if (subcategoryCollapse && !subcategoryCollapse.classList.contains("show")) {
-            console.log(`📂 Expandindo subcategoria: ${subcategoryId}`);
-            subcategoryButton.click(); // Simula clique para abrir
+            console.log(`📂 Expandindo subcategoria (fallback): ${subcategoryId}`);
+            subcategoryButton.click();
         }
-        return; // Finaliza aqui para evitar execução desnecessária
+        return;
     }
 
-    // **Se não for uma subcategoria, tenta expandir como categoria**
+    // Última tentativa: só tenta abrir como categoria
     expandCategory(categoryId);
 }
+
+
 
 async function removeAllWmsLayers() {
     // Seleciona todos os checkboxes das camadas
