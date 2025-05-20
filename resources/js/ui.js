@@ -903,7 +903,6 @@ export function InitializeUI() {
     //enableSwipeToDeleteAccordion("accordionMapasAtivos");
     initializeActionButtons();
     removeAllWmsLayers();
-    handleServerResponse();
     enableCloseButtonAccordion("accordionMapasAtivos");
     
 }
