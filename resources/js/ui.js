@@ -904,5 +904,4 @@ export function InitializeUI() {
     initializeActionButtons();
     removeAllWmsLayers();
     enableCloseButtonAccordion("accordionMapasAtivos");
-    
 }
