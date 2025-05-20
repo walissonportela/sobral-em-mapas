@@ -278,62 +278,66 @@ function updateLegends(layerData, isChecked) {
 }
 
 
-
 function enableSwipeToDeleteAccordion(accordionId) {
     const items = document.querySelectorAll(`#${accordionId} .accordion-item`);
 
     items.forEach((item) => {
         let startX = 0;
         let currentX = 0;
-        let threshold = 80; // Limiar para remover o item
+        let threshold = 80;
         let isSwiping = false;
-        let isMouseDown = false; // Flag para verificar se o mouse está pressionado
-        let isMoving = false; // Flag para verificar se está havendo movimento
-        let allowSwipe = false; // Flag para permitir o arraste
-        let holdTimeout = null; // Timeout para contar os 5 segundos
+        let isMouseDown = false;
+        let isMoving = false;
+        let allowSwipe = false;
+        let holdTimeout = null;
 
-        // Função para iniciar o arrasto
+        // Pega os dados da layer (você pode ajustar isso conforme sua estrutura)
+        const layerData = item.dataset.layer ? JSON.parse(item.dataset.layer) : null;
+
         function startSwipe(x) {
             startX = x;
             isSwiping = true;
-            isMoving = false; // Resetar flag de movimento
+            isMoving = false;
         }
 
-        // Função para processar o movimento
         function moveSwipe(x) {
-            if (!isSwiping || !allowSwipe) return; // Só permitir o movimento se o arraste for autorizado
+            if (!isSwiping || !allowSwipe) return;
             currentX = x;
             let deltaX = currentX - startX;
 
-            if (Math.abs(deltaX) > 10) {
-                // Se houver movimento significativo, ativar a flag de movimento
-                isMoving = true;
-            }
+            if (Math.abs(deltaX) > 10) isMoving = true;
+
             if (Math.abs(deltaX) > threshold && allowSwipe) {
                 item.classList.add("layer-deleting");
             }
 
             if (deltaX < 0) {
-                // Apenas seguir o arraste para a esquerda
                 item.style.transform = `translateX(${deltaX}px)`;
             }
         }
 
-        // Função para finalizar o arrasto
         function endSwipe() {
             if (isMoving) {
                 let deltaX = currentX - startX;
 
                 if (Math.abs(deltaX) > threshold && allowSwipe) {
-                    // Se o arraste for maior que o limiar, remova o item
                     item.style.transition = "transform 0.3s ease";
                     item.style.transform = `translateX(-100%)`;
 
                     setTimeout(() => {
-                        item.remove(); // Remove o item após a animação
+                        // Desativa camada no mapa
+                        if (layerData) {
+                            toggleLayer(window.map, layerData, false);
+                            updateLegends(layerData, false);
+                        }
+
+                        // Desmarca o checkbox dentro do item, se existir
+                        const checkbox = item.querySelector("input[type='checkbox']");
+                        if (checkbox) checkbox.checked = false;
+
+                        item.remove();
                     }, 300);
                 } else {
-                    // Volta ao estado original se o arraste for muito pequeno ou se não foi autorizado
                     item.style.transition = "transform 0.3s ease";
                     item.style.transform = "translateX(0)";
                     item.classList.remove("layer-deleting");
@@ -343,70 +347,127 @@ function enableSwipeToDeleteAccordion(accordionId) {
             isMoving = false;
             isSwiping = false;
             isMouseDown = false;
-            allowSwipe = false; // Reseta o estado para a próxima vez
+            allowSwipe = false;
         }
 
-        // Inicia o temporizador de 5 segundos ao pressionar o botão
-        function startHold() {
+        function startHold(x) {
             holdTimeout = setTimeout(() => {
-                allowSwipe = true; // Permitir o arraste após 5 segundos
-                //item.classList.add("layer-deleting");
-            }, 500); // Aguardar 5 segundos
+                allowSwipe = true;
+                startSwipe(x); // só inicia o swipe após 5 segundos
+            }, 5000); // 5 segundos
         }
 
-        // Cancela o temporizador se o mouse ou o dedo for solto antes dos 5 segundos
         function cancelHold() {
-            clearTimeout(holdTimeout); // Cancela o timeout se o mouse for solto antes de 5 segundos
+            clearTimeout(holdTimeout);
         }
 
-        // Eventos para mobile
+        // --- Touch events (mobile) ---
         item.addEventListener("touchstart", (e) => {
-            startHold(); // Inicia o temporizador de 5 segundos
-            startSwipe(e.touches[0].clientX);
+            startHold(e.touches[0].clientX);
         });
 
         item.addEventListener("touchmove", (e) => {
+            if (allowSwipe) e.preventDefault(); // bloqueia scroll
             moveSwipe(e.touches[0].clientX);
+        }, { passive: false });
+
+        item.addEventListener("touchend", () => {
+            cancelHold();
+            endSwipe();
         });
 
-        item.addEventListener("touchend", (e) => {
-            cancelHold(); // Cancela o temporizador se o arrasto for interrompido
-            if (isMoving) {
-                endSwipe();
-            }
-        });
-
-        // Eventos para desktop (mouse)
+        // --- Mouse events (desktop) ---
         item.addEventListener("mousedown", (e) => {
             isMouseDown = true;
-            startHold(); // Inicia o temporizador de 5 segundos
-            startSwipe(e.clientX);
+            startHold(e.clientX);
         });
 
         item.addEventListener("mousemove", (e) => {
-            if (!isMouseDown) return; // Apenas mover se o mouse estiver pressionado
+            if (!isMouseDown) return;
             moveSwipe(e.clientX);
         });
 
-        item.addEventListener("mouseup", (e) => {
-            cancelHold(); // Cancela o temporizador se o arrasto for interrompido
-            if (isMoving) {
-                endSwipe();
-            } else {
-                isMouseDown = false;
-                isSwiping = false;
-                allowSwipe = false;
-            }
+        item.addEventListener("mouseup", () => {
+            cancelHold();
+            endSwipe();
         });
 
         item.addEventListener("mouseleave", () => {
-            cancelHold(); // Cancela o temporizador se o mouse sair do item
+            cancelHold();
             if (isMouseDown && isMoving) {
                 endSwipe();
             }
         });
     });
 }
+function enableCloseButtonAccordion(accordionId) {
+    const items = document.querySelectorAll(`#${accordionId} .accordion-item`);
+
+    items.forEach((item) => {
+        // Evita adicionar o botão mais de uma vez
+        if (item.querySelector(".close-button")) return;
+
+        // Cria o botão de fechar
+        const closeBtn = document.createElement("button");
+        closeBtn.className = "close-button";
+        closeBtn.textContent = "✕";
+        closeBtn.setAttribute("data-bs-toggle", "tooltip");
+        closeBtn.setAttribute("title", "Clique aqui para remover a camada");
+        closeBtn.setAttribute("aria-label", "Fechar camada");
+        closeBtn.style.cssText = `
+            position: absolute;
+            top: 30px;
+            right: 10px;
+            background: transparent;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            display: none; /* Oculto inicialmente */
+        `;
+        // Adiciona o botão ao item
+        item.style.position = "relative";
+        item.appendChild(closeBtn);
+        new bootstrap.Tooltip(closeBtn);
+
+        // Evento de clique no botão
+        closeBtn.addEventListener("click", () => {
+            // Extrai o ID da camada do atributo ID do item
+            const layerId = item.id.replace("active-layer-", "");
+            if (layerId) {
+                const layerData = { layer_name: layerId };
+                console.log(`❌${layerData } `)
+                // Remove camada do mapa
+                toggleLayer(window.map, layerData, false);
+
+                // Atualiza legenda
+                updateLegends(layerData, false);
+            }
+
+           // Tenta encontrar o checkbox correspondente com ID igual ao layerId
+                const checkbox = document.querySelector(`input.layer-toggle[id="${layerId}"]`);
+
+                if (checkbox) {
+                    checkbox.checked = false;
+                }
+        });
+        // Detecta quando o acordeão é aberto ou fechado
+        const collapse = item.querySelector(".accordion-collapse");
+
+        if (collapse) {
+            collapse.addEventListener("show.bs.collapse", () => {
+                closeBtn.style.display = "block";
+            });
+
+            collapse.addEventListener("hide.bs.collapse", () => {
+                closeBtn.style.display = "none";
+            });
+        }
+   
+    });
+}
+
+
+
 
 // Função para inicializar os botões da Action Bar que alterna entre seções dentro da sidebar
 function initializeActionButtons() {
@@ -839,9 +900,10 @@ export function InitializeUI() {
     initializeSearch();
     toggleFullScreen();
     initializeExpandButton();
-    enableSwipeToDeleteAccordion("accordionMapasAtivos");
+    //enableSwipeToDeleteAccordion("accordionMapasAtivos");
     initializeActionButtons();
     removeAllWmsLayers();
     handleServerResponse();
+    enableCloseButtonAccordion("accordionMapasAtivos");
     
 }
