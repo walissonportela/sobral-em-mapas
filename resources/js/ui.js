@@ -512,6 +512,7 @@ function statistic() {
 
     let tempoInicio = Date.now();
     let mapasSelecionados = {};
+    let recommendedMapActivations = {}; 
 
     // Gera um identificador único para a sessão (se não existir na localStorage)
     let sessionId = sessionStorage.getItem("sessionId");
@@ -542,6 +543,7 @@ function statistic() {
         if (!isChecked) {
             console.log(`🛠 Camada "${layerName}" desmarcada. Contador mantido: ${mapasSelecionados[layerName]}`);
         }
+       
     
         // 🚀 Atualiza SOMENTE as camadas que estão ativas!
         document.querySelectorAll(".layer-toggle:checked").forEach((checkbox) => {
@@ -578,6 +580,10 @@ function statistic() {
     
                 // ✅ Agora só aumenta a contagem de camadas ATIVAS, sem duplicar
                 mapasSelecionados[activeLayerName] = (mapasSelecionados[activeLayerName] || 0) + 1;
+                if (recommendedLayersStats[activeLayerName]) {
+                    recommendedMapActivations[activeLayerName] = (recommendedMapActivations[activeLayerName] || 0) + 1;
+                    console.log(`🔥 O usuário ativou o mapa recomendado: ${activeLayerName}`);
+                }
     
             } catch (error) {
                 console.error("❌ ERRO ao processar camada ativa:", error);
@@ -606,11 +612,15 @@ function statistic() {
     function enviarEstatisticas() {
         let tempoAtual = Date.now();
         let tempoTotal = Math.round((tempoAtual - tempoInicio) / 1000); // Tempo em segundos
+        if (Object.keys(recommendedMapActivations).length === 0) {
+            recommendedMapActivations = {}; // Mantém a estrutura esperada
+        }
 
         let estatisticas = {
             session_id: sessionId, // Enviamos o identificador único da sessão
             mapas_selecionados: mapasSelecionados, // Apenas os nomes das camadas e contagem
             tempo_total: tempoTotal,
+            recommended_map_activations: recommendedMapActivations,
         };
 
         console.log("📤 Enviando estatísticas a cada 30s:", estatisticas);
@@ -627,11 +637,230 @@ function statistic() {
         .catch((error) => console.error("❌ Erro ao enviar estatísticas:", error));
     }
 
-
+    // Enviar estatísticas a cada 30 segundos
+    //setInterval(enviarEstatisticas, 30000);
 
     // Envia estatísticas finais ao sair da página
     window.addEventListener("beforeunload", enviarEstatisticas);
 }
+let recommendedLayersStats = {}; // Armazena mapas recomendados
+let recommendedMapActivations = {};
+export function handleServerResponse(responseData) {
+    // Verifica se há um objeto com `map_type` na resposta
+    const mapTypeData = responseData.find(item => item.custom && item.custom.map_type);
+    const recommendationData = responseData.find(item => item.custom && item.custom.recommended_map);
+
+    if (recommendationData) {
+        const recommendedMap = recommendationData.custom.recommended_map.toLowerCase();
+        console.log(`📍 Mapa recomendado pelo chatbot: ${recommendedMap}`);
+
+        // Salva a recomendação para comparação futura
+        recommendedLayersStats[recommendedMap] = true;
+    }
+    
+    if (mapTypeData) {
+        const mapType = mapTypeData.custom.map_type.toLowerCase();
+        console.log(`📍 Tentando marcar a camada: ${mapType}`);
+
+        // Expande o menu lateral automaticamente
+        const sidebar = document.getElementById("sidebar");
+        if (sidebar) {
+            sidebar.classList.add("open"); // Certifique-se de que essa classe abre o menu
+        }
+         // **Verifica se `mapType` é uma categoria ou subcategoria**
+         expandCategoryIfNeeded(mapType);
+        // Percorre todas as camadas e encontra a que corresponde ao `map_type`
+        let foundLayer = false;
+        document.querySelectorAll(".layer-toggle").forEach(layerCheckbox => {
+            let layerData;
+
+            try {
+                layerData = JSON.parse(layerCheckbox.getAttribute("data-layer").replace(/&quot;/g, '"'));
+                if (typeof layerData === "string") {
+                    layerData = JSON.parse(layerData);
+                }
+
+                // Se o `map_type` for igual ao nome da camada, marca e ativa
+                if (layerData.name.toLowerCase() === mapType) {
+                    foundLayer = true;
+                    layerCheckbox.checked = true;
+                    console.log(`✅ Marcando automaticamente: ${layerData.layer_name}`);
+
+                    // 🚀 Disparar evento "change" para ativar a camada no mapa
+                    layerCheckbox.dispatchEvent(new Event("change"));
+
+                    // Atualiza estatísticas
+                    window.updateStatistics(layerData, true);
+
+                    // Adiciona a camada ao mapa
+                    toggleLayer(window.map, layerData, true);
+
+                    // **Abre automaticamente a categoria e subcategoria**
+                    expandCategoryAndSubcategory(layerCheckbox);
+                }
+            } catch (error) {
+                console.error("❌ ERRO ao processar data-layer:", error);
+            }
+        });
+
+        if (!foundLayer) {
+            console.warn("⚠ Nenhuma camada correspondente encontrada para:", mapType);
+        }
+    }
+}
+function expandCategoryAndSubcategory(layerCheckbox) {
+    // Encontra a subcategoria e categoria associadas
+    let subcategory = layerCheckbox.closest(".accordion-item.sub");
+    let category = layerCheckbox.closest(".accordion-item.cat");
+
+    // Expande a subcategoria se estiver fechada
+    if (subcategory) {
+        subcategory.style.display = "block";
+        let subCategoryButton = subcategory.querySelector(".accordion-button");
+        if (subCategoryButton) {
+            subCategoryButton.classList.remove("collapsed");
+            subCategoryButton.setAttribute("aria-expanded", "true");
+            let subCategoryContent = document.querySelector(`#${subCategoryButton.getAttribute("data-bs-target").substring(1)}`);
+            if (subCategoryContent) {
+                subCategoryContent.classList.add("show");
+            }
+        }
+    }
+
+    // Expande a categoria se estiver fechada
+    if (category) {
+        category.style.display = "block";
+        let categoryButton = category.querySelector(".accordion-button");
+        if (categoryButton) {
+            categoryButton.classList.remove("collapsed");
+            categoryButton.setAttribute("aria-expanded", "true");
+            let categoryContent = document.querySelector(`#${categoryButton.getAttribute("data-bs-target").substring(1)}`);
+            if (categoryContent) {
+                categoryContent.classList.add("show");
+            }
+        }
+    }
+}
+// **Função auxiliar para expandir categorias**
+function expandCategory(categoryId) {
+    let categoryButton = document.querySelector(`button[data-bs-target="#${categoryId}"]`);
+    if (categoryButton) {
+        let categoryCollapse = document.getElementById(categoryId);
+        if (categoryCollapse && !categoryCollapse.classList.contains("show")) {
+            console.log(`📂 Expandindo categoria: ${categoryId}`);
+            categoryButton.click(); // Simula clique para abrir
+        }
+    }
+}
+
+// 🔹 NOVA FUNÇÃO: Expande categorias ou subcategorias automaticamente
+// 🔹 NOVA VERSÃO ROBUSTA: Expande categoria e subcategoria automaticamente com base no nome da camada
+function expandCategoryIfNeeded(layerName) {
+    console.log(`🕵️ Procurando camada com o nome: ${layerName}`);
+
+    let targetLayer = Array.from(document.querySelectorAll(".layer-toggle")).find(input => {
+        try {
+            let layerDataRaw = input.getAttribute("data-layer");
+            if (!layerDataRaw) return false;
+
+            // Decode de &quot; para aspas reais
+            layerDataRaw = layerDataRaw.replace(/&quot;/g, '"');
+
+            let layerData = JSON.parse(layerDataRaw);
+            if (typeof layerData === "string") {
+                layerData = JSON.parse(layerData);
+            }
+
+            if (!layerData.layer_name) return false;
+
+            return layerData.layer_name.toLowerCase() === layerName.toLowerCase();
+        } catch (e) {
+            console.warn("⚠️ Erro ao parsear data-layer:", e);
+            return false;
+        }
+    });
+
+    if (targetLayer) {
+        console.log(`✅ Camada encontrada no DOM! Expandindo categorias relacionadas...`);
+
+        // Encontra subcategoria
+        let subcategory = targetLayer.closest(".accordion-item.sub");
+        let category = targetLayer.closest(".accordion-item.cat");
+
+        if (subcategory) {
+            let subcategoryButton = subcategory.querySelector(".accordion-button");
+            let subcategoryId = subcategoryButton?.getAttribute("data-bs-target")?.replace("#", "");
+
+            if (subcategoryButton && subcategoryId) {
+                console.log(`📂 Subcategoria identificada: ${subcategoryId}`);
+
+                let subcategoryCollapse = document.getElementById(subcategoryId);
+                if (subcategoryCollapse && !subcategoryCollapse.classList.contains("show")) {
+                    console.log(`📂 Expandindo subcategoria: ${subcategoryId}`);
+                    subcategoryButton.click();
+                }
+            } else {
+                console.warn("⚠️ Botão ou ID da subcategoria não encontrado.");
+            }
+        }
+
+        if (category) {
+            let categoryButton = category.querySelector(".accordion-button");
+            let categoryId = categoryButton?.getAttribute("data-bs-target")?.replace("#", "");
+
+            if (categoryButton && categoryId) {
+                console.log(`📂 Categoria identificada: ${categoryId}`);
+
+                let categoryCollapse = document.getElementById(categoryId);
+                if (categoryCollapse && !categoryCollapse.classList.contains("show")) {
+                    console.log(`📂 Expandindo categoria: ${categoryId}`);
+                    categoryButton.click();
+                }
+            } else {
+                console.warn("⚠️ Botão ou ID da categoria não encontrado.");
+            }
+        }
+
+        return; // Já resolveu, não precisa fazer o fallback
+    }
+
+    // 🔄 Fallback: tenta normalizar como se fosse um ID de categoria/subcategoria
+    console.warn("❌ Nenhuma camada encontrada com o nome:", layerName);
+
+    const normalizeText = (text) =>
+        text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-").toLowerCase();
+
+    const categoryId = `cat-${normalizeText(layerName)}`;
+    const subcategoryId = `subcat-${normalizeText(layerName)}`;
+
+    console.log(`📂 Tentando fallback com IDs normalizados: Categoria -> ${categoryId} | Subcategoria -> ${subcategoryId}`);
+
+    let subcategoryButton = document.querySelector(`button[data-bs-target="#${subcategoryId}"]`);
+    if (subcategoryButton) {
+        console.log(`📂 Subcategoria encontrada via fallback: ${subcategoryId}`);
+
+        let parentAccordion = subcategoryButton.closest(".accordion-body")?.closest(".accordion-collapse");
+        if (parentAccordion) {
+            let parentCategoryButton = document.querySelector(`button[data-bs-target="#${parentAccordion.id}"]`);
+            if (parentCategoryButton) {
+                console.log(`📂 A subcategoria pertence à categoria: ${parentAccordion.id}`);
+                expandCategory(parentAccordion.id);
+            }
+        }
+
+        let subcategoryCollapse = document.getElementById(subcategoryId);
+        if (subcategoryCollapse && !subcategoryCollapse.classList.contains("show")) {
+            console.log(`📂 Expandindo subcategoria (fallback): ${subcategoryId}`);
+            subcategoryButton.click();
+        }
+        return;
+    }
+
+    // Última tentativa: só tenta abrir como categoria
+    expandCategory(categoryId);
+}
+
+
 
 async function removeAllWmsLayers() {
     // Seleciona todos os checkboxes das camadas
@@ -675,5 +904,4 @@ export function InitializeUI() {
     initializeActionButtons();
     removeAllWmsLayers();
     enableCloseButtonAccordion("accordionMapasAtivos");
-    
 }

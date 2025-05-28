@@ -108,7 +108,7 @@
                         
                         @if(!empty($layer->getDescription()))
                             <div class="ma-leg-box">
-                                <p>{{ $layer->getDescription() }}</p>
+                                <p> {!! $layer->getDescription() !!}</p>
                             </div>
                         @else
                             <p>ℹ️ Nenhuma descrição fornecida para esta camada.</p>
