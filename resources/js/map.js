@@ -265,6 +265,102 @@ export function toggleLayer(map, layerName, shouldAdd) {
     }
 }
 
+export function getSelectionAreaPixels() {
+    const selectionArea = document.getElementById('selection-area');
+    const mapElement = document.getElementById('map');
+
+    if (!selectionArea || !mapElement) return null;
+
+    const selectionRect = selectionArea.getBoundingClientRect();
+    const mapRect = mapElement.getBoundingClientRect();
+
+    return {
+        left: selectionRect.left - mapRect.left,
+        top: selectionRect.top - mapRect.top,
+        width: selectionRect.width,
+        height: selectionRect.height
+    };
+}
+
+export function exportVisibleMapArea(map) {
+    const selection = getSelectionAreaPixels();
+    if (!selection) {
+        console.error('Área de seleção não encontrada.');
+        return;
+    }
+
+    const { left, top, width, height } = selection;
+
+    const format = document.getElementById('format').value;
+    const scaleValue = parseFloat(document.getElementById('scale').value);
+
+    const view = map.getView();
+    const originalResolution = view.getResolution();
+
+    // Define nova resolução com base na escala fornecida
+    const dpi = 96;
+    const newResolution = scaleValue / (dpi * 39.37);
+    //view.setResolution(newResolution);
+
+    // Espera o mapa renderizar tudo
+    console.log('inciando print');
+    map.once('rendercomplete', () => {
+        console.log('renderizado');
+        const mapCanvas = document.createElement('canvas');
+        mapCanvas.width = width;
+        mapCanvas.height = height;
+        const mapContext = mapCanvas.getContext('2d');
+
+        // Itera sobre todos os canvas das camadas do OL
+        document.querySelectorAll('.ol-layer canvas').forEach((canvas) => {
+            if (canvas.width > 0 && canvas.height > 0) {
+                const opacity = canvas.parentNode.style.opacity;
+                mapContext.globalAlpha = opacity === '' ? 1 : Number(opacity);
+
+                const transform = canvas.style.transform;
+                if (transform && transform.startsWith('matrix')) {
+                    const matrix = transform
+                        .match(/^matrix\(([^)]+)\)$/)[1]
+                        .split(',')
+                        .map(Number);
+                    mapContext.setTransform(...matrix);
+                }
+
+                // Recorta apenas a parte da seleção
+                mapContext.drawImage(
+                    canvas,
+                    left, top, width, height,
+                    0, 0, width, height
+                );
+            }
+        });
+
+        // Gera o conteúdo final
+        const mime = format === 'jpg' ? 'image/jpeg' : 'image/png';
+        const imgData = mapCanvas.toDataURL(mime);
+
+        if (format === 'pdf') {
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({
+                orientation: width > height ? 'landscape' : 'portrait',
+                unit: 'px',
+                format: [width, height]
+            });
+            pdf.addImage(imgData, 'PNG', 0, 0, width, height);
+            pdf.save('mapa_selecionado.pdf');
+        } else {
+            const link = document.createElement('a');
+            link.download = `mapa_selecionado.${format}`;
+            link.href = imgData;
+            link.click();
+        }
+
+        // Restaura a resolução original
+        //view.setResolution(originalResolution);
+    });
+
+    map.renderSync(); // Garante renderização imediata
+}
 
 
 
