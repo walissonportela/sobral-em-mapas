@@ -32,6 +32,7 @@
     <!-- Carregar a biblioteca OpenLayers correta (versão 6.13.0) -->
     <script src="https://openlayers.org/en/v6.13.0/build/ol.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <!-- Seu script para inicializar o mapa -->
     <script src="{{ asset('js/app.js') }}"></script>
     <script src="{{ asset('js/map.js') }}"></script>

@@ -306,7 +306,8 @@ export function exportVisibleMapArea(map) {
     map.renderSync(); // Garante renderização imediata
     
     console.log('inciando print');
-    map.once('rendercomplete', () => {
+    //map.once('rendercomplete', () => {
+    setTimeout(()=> {
         console.log('renderizado');
         const mapCanvas = document.createElement('canvas');
         mapCanvas.width = width;
@@ -359,7 +360,7 @@ export function exportVisibleMapArea(map) {
 
         // Restaura a resolução original
         //view.setResolution(originalResolution);
-    });
+    }, 500);
 
     //map.renderSync(); // Garante renderização imediata
 }
