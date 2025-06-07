@@ -303,6 +303,8 @@ export function exportVisibleMapArea(map) {
     //view.setResolution(newResolution);
 
     // Espera o mapa renderizar tudo
+    map.renderSync(); // Garante renderização imediata
+    
     console.log('inciando print');
     map.once('rendercomplete', () => {
         console.log('renderizado');
@@ -359,7 +361,7 @@ export function exportVisibleMapArea(map) {
         //view.setResolution(originalResolution);
     });
 
-    map.renderSync(); // Garante renderização imediata
+    //map.renderSync(); // Garante renderização imediata
 }
 
 
