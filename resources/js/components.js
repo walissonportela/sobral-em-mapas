@@ -1,4 +1,4 @@
-import { toggleLayer } from "./map";
+import { toggleLayer, getSelectionAreaPixels, exportVisibleMapArea } from "./map";
 import { handleServerResponse } from "./ui.js";
 
 // Função para inicializar a caixa de seleção (mover e redimensionar)
@@ -9,6 +9,8 @@ function initializeSelectionBox() {
     const selectionTools = document.querySelector(".selection-tools");
     const resolution = document.getElementById("resolution");
     const selectionArea = document.getElementById("selection-area");
+    const downloadButton = document.getElementById('download-button');
+    const scaleInput = document.getElementById('scale');
     let isDragging = false;
     let startX, startY, offsetX, offsetY;
 
@@ -74,6 +76,16 @@ function initializeSelectionBox() {
     const resizeObserver = new ResizeObserver(() => {
         updateDimensions(); // Atualiza as dimensões após o redimensionamento
     });
+
+    downloadButton.addEventListener('click', function () {
+        exportVisibleMapArea(window.map);
+    });
+
+    if (scaleInput) {
+        const debouncedScaleUpdate = debounce(updateMapFromScaleInput, 400);
+        scaleInput.addEventListener('input', debouncedScaleUpdate);
+    }
+
 
     // Observar mudanças na caixa de seleção
     resizeObserver.observe(selectionBox);
@@ -546,6 +558,77 @@ function initializeChat() {
     }
 }
 
+// Mover pro map.js depois
+// Atualiza o input #scale com a escala baseada na resolução atual
+function updateScaleInputFromMap() {
+    const view = window.map.getView();
+    const scaleInput = document.getElementById('scale');
+    if (!view || !scaleInput) return;
+
+    const resolution = view.getResolution();
+    const escala = resolutionToScale(resolution);
+    scaleInput.value = escala;
+}
+
+const DPI = 96;
+// Converte resolução do mapa para escala (ex: 1:10000)
+function resolutionToScale(resolution) {
+    return Math.round(resolution * DPI * 39.37);
+}
+
+function initializeResolutionWatcher() {
+    const view = window.map.getView();
+    const resolutionElement = document.getElementById('resolution');
+    const scaleInput = document.getElementById('scale');
+
+    if (!view) return;
+
+    const updateUI = () => {
+        const res = view.getResolution();
+        if (resolutionElement) {
+            resolutionElement.innerText = `${Math.round(res * 1000)} x ${Math.round(res * 1000)}`;
+        }
+        if (scaleInput) {
+            scaleInput.value = resolutionToScale(res);
+        }
+    };
+
+    // Atualiza ao carregar e sempre que a resolução mudar
+    updateUI();
+    view.on('change:resolution', updateUI);
+}
+
+// retarda a ação input
+function debounce(func, wait) {
+    let timeout;
+    return function (...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
+
+// Converte escala para resolução
+function scaleToResolution(scale) {
+    return scale / (DPI * 39.37);
+}
+
+// Altera o zoom do mapa baseado no valor digitado no input de escala
+function updateMapFromScaleInput() {
+    const scaleInput = document.getElementById('scale');
+    const scaleMin = 4514;
+    if (!scaleInput) return;
+
+    let scaleValue = parseFloat(scaleInput.value);
+    if (isNaN(scaleValue)) return;
+    if (scaleValue < scaleMin) {
+        scaleInput.value = scaleMin;
+        scaleValue = scaleMin;
+    }
+
+    const resolution = scaleToResolution(scaleValue);
+    const view = window.map.getView();
+    view.setResolution(resolution);
+}
 
 
 
@@ -554,8 +637,9 @@ function initializeChat() {
 
 export function InitializeComponents() {
     initializeSelectionBox();
+    initializeResolutionWatcher();
     initializeFloatingButton();
     initializeChat();
     initializeMeasure();
-   
+    updateScaleInputFromMap();
 }

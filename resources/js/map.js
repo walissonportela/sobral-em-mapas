@@ -10,7 +10,7 @@ export function initializeMap() {
         layers: [
             new ol.layer.Tile({
                 source: new ol.source.OSM(),
-                preload: 10, // Preload de 4 níveis de tiles ao redor
+                preload: 10,
             }),
         ],
         view: new ol.View({
@@ -20,18 +20,24 @@ export function initializeMap() {
             minZoom: 10,
             projection: ol.proj.get("EPSG:3857"),
         }),
-        interactions: ol.interaction.defaults({
-            // Configura a sensibilidade do zoom ao usar o scroll do mouse
-            mouseWheelZoom: new ol.interaction.MouseWheelZoom({
-                duration: 100, // Duração da animação de zoom, em milissegundos
-                zoomDelta: 10, // Controla o quanto o zoom aumenta ou diminui a cada rotação do scroll
+        interactions: [
+            new ol.interaction.DragPan(),
+            new ol.interaction.DoubleClickZoom(),
+            new ol.interaction.PinchZoom(),
+            new ol.interaction.MouseWheelZoom({
+                duration: 100,
             }),
-        }),
+            new ol.interaction.DragZoom(),
+            new ol.interaction.KeyboardZoom(),
+            new ol.interaction.KeyboardPan(),
+        ],
     });
 
     window.map = map;
     loadSobralBoundary();
 }
+
+
 
 // Função para carregar e adicionar o polígono de Sobral via GeoJSON
 async function loadSobralBoundary() {
@@ -265,6 +271,105 @@ export function toggleLayer(map, layerName, shouldAdd) {
     }
 }
 
+export function getSelectionAreaPixels() {
+    const selectionArea = document.getElementById('selection-area');
+    const mapElement = document.getElementById('map');
+
+    if (!selectionArea || !mapElement) return null;
+
+    const selectionRect = selectionArea.getBoundingClientRect();
+    const mapRect = mapElement.getBoundingClientRect();
+
+    return {
+        left: selectionRect.left - mapRect.left,
+        top: selectionRect.top - mapRect.top,
+        width: selectionRect.width,
+        height: selectionRect.height
+    };
+}
+
+export function exportVisibleMapArea(map) {
+    const selection = getSelectionAreaPixels();
+    if (!selection) {
+        console.error('Área de seleção não encontrada.');
+        return;
+    }
+
+    const { left, top, width, height } = selection;
+
+    const format = document.getElementById('format').value;
+    const scaleValue = parseFloat(document.getElementById('scale').value);
+
+    const view = map.getView();
+    const originalResolution = view.getResolution();
+
+    // Define nova resolução com base na escala fornecida
+    const dpi = 96;
+    const newResolution = scaleValue / (dpi * 39.37);
+    //view.setResolution(newResolution);
+
+    // Espera o mapa renderizar tudo
+    map.renderSync(); // Garante renderização imediata
+    
+    console.log('inciando print');
+    //map.once('rendercomplete', () => {
+    setTimeout(()=> {
+        console.log('renderizado');
+        const mapCanvas = document.createElement('canvas');
+        mapCanvas.width = width;
+        mapCanvas.height = height;
+        const mapContext = mapCanvas.getContext('2d');
+
+        // Itera sobre todos os canvas das camadas do OL
+        document.querySelectorAll('.ol-layer canvas').forEach((canvas) => {
+            if (canvas.width > 0 && canvas.height > 0) {
+                const opacity = canvas.parentNode.style.opacity;
+                mapContext.globalAlpha = opacity === '' ? 1 : Number(opacity);
+
+                const transform = canvas.style.transform;
+                if (transform && transform.startsWith('matrix')) {
+                    const matrix = transform
+                        .match(/^matrix\(([^)]+)\)$/)[1]
+                        .split(',')
+                        .map(Number);
+                    mapContext.setTransform(...matrix);
+                }
+
+                // Recorta apenas a parte da seleção
+                mapContext.drawImage(
+                    canvas,
+                    left, top, width, height,
+                    0, 0, width, height
+                );
+            }
+        });
+
+        // Gera o conteúdo final
+        const mime = format === 'jpg' ? 'image/jpeg' : 'image/png';
+        const imgData = mapCanvas.toDataURL(mime);
+
+        if (format === 'pdf') {
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({
+                orientation: width > height ? 'landscape' : 'portrait',
+                unit: 'px',
+                format: [width, height]
+            });
+            pdf.addImage(imgData, 'PNG', 0, 0, width, height);
+            pdf.save('mapa_selecionado.pdf');
+        } else {
+            const link = document.createElement('a');
+            link.download = `mapa_selecionado.${format}`;
+            link.href = imgData;
+            link.click();
+        }
+
+        // Restaura a resolução original
+        //view.setResolution(originalResolution);
+    }, 500);
+
+    //map.renderSync(); // Garante renderização imediata
+}
 
 
 
