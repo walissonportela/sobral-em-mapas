@@ -10,7 +10,7 @@ export function initializeMap() {
         layers: [
             new ol.layer.Tile({
                 source: new ol.source.OSM(),
-                preload: 10, // Preload de 4 níveis de tiles ao redor
+                preload: 10,
             }),
         ],
         view: new ol.View({
@@ -20,18 +20,24 @@ export function initializeMap() {
             minZoom: 10,
             projection: ol.proj.get("EPSG:3857"),
         }),
-        interactions: ol.interaction.defaults({
-            // Configura a sensibilidade do zoom ao usar o scroll do mouse
-            mouseWheelZoom: new ol.interaction.MouseWheelZoom({
-                duration: 100, // Duração da animação de zoom, em milissegundos
-                zoomDelta: 10, // Controla o quanto o zoom aumenta ou diminui a cada rotação do scroll
+        interactions: [
+            new ol.interaction.DragPan(),
+            new ol.interaction.DoubleClickZoom(),
+            new ol.interaction.PinchZoom(),
+            new ol.interaction.MouseWheelZoom({
+                duration: 100,
             }),
-        }),
+            new ol.interaction.DragZoom(),
+            new ol.interaction.KeyboardZoom(),
+            new ol.interaction.KeyboardPan(),
+        ],
     });
 
     window.map = map;
     loadSobralBoundary();
 }
+
+
 
 // Função para carregar e adicionar o polígono de Sobral via GeoJSON
 async function loadSobralBoundary() {
