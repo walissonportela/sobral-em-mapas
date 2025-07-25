@@ -10,12 +10,15 @@ class Estatistica extends Model
 
     protected $table = 'estatisticas';
 
-    protected $fillable = [
+        protected $fillable = [
         'ip_usuario',
-        'mapas_selecionados',
+        'mapa',
+        'tempo',
+        'recomendado',
         'tempo_total',
-        'recommended_map_activations', // Adicionando a nova coluna
+        'mapa_anterior',
     ];
+
 
     protected $casts = [
         'mapas_selecionados' => 'array',

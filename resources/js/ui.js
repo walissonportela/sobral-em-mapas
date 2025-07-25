@@ -511,13 +511,17 @@ function statistic() {
     console.log("📊 Função statistic() inicializada...");
 
     let tempoInicio = Date.now();
-    let mapasSelecionados = {};
-    let recommendedMapActivations = {}; 
+    let mapasSelecionados = {};              // { mapa: tempo acumulado em ms }
+    let mapasAtivosTimestamp = {};           // { mapa: timestamp de ativação }
+    let recommendedMapActivations = {};      // { mapa: contagem de ativações }
+    let mapaAnteriorPorRecomendado = {};  // { "Mapa Recomendado": "Mapa Anterior" }
+    let ultimoMapaAtivado = null;
 
-    // Gera um identificador único para a sessão (se não existir na localStorage)
+
+    // Gera um ID de sessão único se não existir
     let sessionId = sessionStorage.getItem("sessionId");
     if (!sessionId) {
-        sessionId = Math.floor(100000 + Math.random() * 900000).toString(); // Gera um número de 6 dígitos
+        sessionId = Math.floor(100000 + Math.random() * 900000).toString();
         sessionStorage.setItem("sessionId", sessionId);
     }
     console.log(`🆔 ID da sessão: ${sessionId}`);
@@ -526,104 +530,89 @@ function statistic() {
         if (typeof layerData === "string") {
             try {
                 layerData = JSON.parse(layerData);
-                console.log("✅ JSON convertido para objeto:", layerData);
             } catch (error) {
-                console.error("❌ ERRO ao converter JSON para objeto:", error);
+                console.error("❌ ERRO ao converter JSON:", error);
                 return;
             }
         }
-    
+
         const layerName = layerData.layer_name;
-    
-        // Garante que o valor não seja indefinido
+        const agora = Date.now();
+
+        // Inicializa se necessário
         if (!mapasSelecionados[layerName]) {
             mapasSelecionados[layerName] = 0;
         }
-    
+
         if (!isChecked) {
-            console.log(`🛠 Camada "${layerName}" desmarcada. Contador mantido: ${mapasSelecionados[layerName]}`);
-        }
-       
-    
-        // 🚀 Atualiza SOMENTE as camadas que estão ativas!
-        document.querySelectorAll(".layer-toggle:checked").forEach((checkbox) => {
-            try {
-                let activeLayerData = checkbox.getAttribute("data-layer");
-    
-                if (!activeLayerData) {
-                    console.warn("⚠️ data-layer ausente no checkbox:", checkbox);
-                    return;
-                }
-    
-                console.log("🔍 Conteúdo bruto do data-layer:", activeLayerData);
-    
-                // Converte para objeto JSON
-                if (typeof activeLayerData === "string") {
-                    try {
-                        activeLayerData = JSON.parse(activeLayerData);
-                        activeLayerData = JSON.parse(activeLayerData);
-                    } catch (parseError) {
-                        console.error("❌ ERRO ao converter data-layer para JSON:", parseError, "Conteúdo:", activeLayerData);
-                        return;
-                    }
-                }
-    
-                console.log("📦 Objeto convertido:", activeLayerData);
-    
-                if (!activeLayerData || typeof activeLayerData !== "object" || !activeLayerData.layer_name) {
-                    console.warn("⚠️ Estrutura inválida no objeto após parse:", activeLayerData);
-                    return;
-                }
-    
-                let activeLayerName = activeLayerData.layer_name;
-                console.log(`📌 Nome da camada ativa detectado: ${activeLayerName}`);
-    
-                // ✅ Agora só aumenta a contagem de camadas ATIVAS, sem duplicar
-                mapasSelecionados[activeLayerName] = (mapasSelecionados[activeLayerName] || 0) + 1;
-                if (recommendedLayersStats[activeLayerName]) {
-                    recommendedMapActivations[activeLayerName] = (recommendedMapActivations[activeLayerName] || 0) + 1;
-                    console.log(`🔥 O usuário ativou o mapa recomendado: ${activeLayerName}`);
-                }
-    
-            } catch (error) {
-                console.error("❌ ERRO ao processar camada ativa:", error);
+            // Desativou: calcula tempo e limpa timestamp
+            if (mapasAtivosTimestamp[layerName]) {
+                const tempoAtivo = agora - mapasAtivosTimestamp[layerName];
+                mapasSelecionados[layerName] += tempoAtivo;
+                console.log(`🕒 Mapa "${layerName}" desmarcado. Tempo acumulado: ${mapasSelecionados[layerName]}ms`);
+                delete mapasAtivosTimestamp[layerName];
             }
-        });
-    
-        console.log("📊 Mapas Selecionados Atualizados:", JSON.stringify(mapasSelecionados, null, 2));
+            return;
+        }
+
+        // Ativou: registra timestamp se ainda não tiver
+        if (!mapasAtivosTimestamp[layerName]) {
+            mapasAtivosTimestamp[layerName] = agora;
+            console.log(`🟢 Mapa "${layerName}" ativado em ${agora}`);
+        }
+
+        // Se for recomendado
+         if (typeof recommendedLayersStats !== 'undefined' && recommendedLayersStats[layerName]) {
+        if (ultimoMapaAtivado && ultimoMapaAtivado !== layerName) {
+            mapaAnteriorPorRecomendado[layerName] = ultimoMapaAtivado;
+            console.log(`🔗 Mapa anterior a "${layerName}" foi "${ultimoMapaAtivado}"`);
+        }
+        recommendedMapActivations[layerName] = (recommendedMapActivations[layerName] || 0) + 1;
+        }
+
+        // Atualiza último ativado
+        ultimoMapaAtivado = layerName;
     }
-    
-    
-    
-    
 
     window.updateStatistics = atualizarMapas;
 
-    // Captura mudanças nos checkboxes das camadas
+    // Monitora alterações nos checkboxes
     document.addEventListener("change", function (event) {
         if (event.target.classList.contains("layer-toggle")) {
-            let layerData = JSON.parse(event.target.getAttribute("data-layer"));
-            atualizarMapas(layerData, event.target.checked);
-            console.log(`🛠 Camada "${layerData.layer_name}" foi ${event.target.checked ? "selecionada" : "desmarcada"}`);
+            let rawData = event.target.getAttribute("data-layer");
+            if (!rawData) return;
+
+            try {
+                let layerData = JSON.parse(JSON.parse(rawData)); // JSON duplo
+                atualizarMapas(layerData, event.target.checked);
+                console.log(`🛠 Camada "${layerData.layer_name}" foi ${event.target.checked ? "selecionada" : "desmarcada"}`);
+            } catch (e) {
+                console.error("❌ Erro ao processar camada:", e);
+            }
         }
     });
 
-    // Função para enviar estatísticas periodicamente
     function enviarEstatisticas() {
-        let tempoAtual = Date.now();
-        let tempoTotal = Math.round((tempoAtual - tempoInicio) / 1000); // Tempo em segundos
-        if (Object.keys(recommendedMapActivations).length === 0) {
-            recommendedMapActivations = {}; // Mantém a estrutura esperada
+        const agora = Date.now();
+
+        // Finaliza tempo dos mapas ainda ativos
+        for (let mapa in mapasAtivosTimestamp) {
+            const tempoAtivo = agora - mapasAtivosTimestamp[mapa];
+            mapasSelecionados[mapa] = (mapasSelecionados[mapa] || 0) + tempoAtivo;
+            mapasAtivosTimestamp[mapa] = agora; // reinicia timestamp para próxima contagem
         }
 
-        let estatisticas = {
-            session_id: sessionId, // Enviamos o identificador único da sessão
-            mapas_selecionados: mapasSelecionados, // Apenas os nomes das camadas e contagem
+        const tempoTotal = Math.round((agora - tempoInicio) / 1000); // em segundos
+
+        const estatisticas = {
+            session_id: sessionId,
+            mapas_selecionados: mapasSelecionados, // { mapa: tempo }
             tempo_total: tempoTotal,
             recommended_map_activations: recommendedMapActivations,
+            mapa_anterior_por_recomendado: mapaAnteriorPorRecomendado
         };
 
-        console.log("📤 Enviando estatísticas a cada 30s:", estatisticas);
+        console.log("📤 Enviando estatísticas:", estatisticas);
 
         fetch(`${window.location.origin}/sobralmapas/public/api/estatisticas`, {
             method: "POST",
@@ -633,16 +622,17 @@ function statistic() {
             body: JSON.stringify(estatisticas),
         })
         .then((response) => response.json())
-        .then((data) => console.log("📊 Estatísticas enviadas com sucesso:", data))
+        .then((data) => console.log("✅ Estatísticas enviadas:", data))
         .catch((error) => console.error("❌ Erro ao enviar estatísticas:", error));
     }
 
-    // Enviar estatísticas a cada 30 segundos
-    //setInterval(enviarEstatisticas, 30000);
-
-    // Envia estatísticas finais ao sair da página
+    // Envia estatísticas ao sair da página
     window.addEventListener("beforeunload", enviarEstatisticas);
+
+    // (Opcional) envie a cada 30s:
+    // setInterval(enviarEstatisticas, 30000);
 }
+
 let recommendedLayersStats = {}; // Armazena mapas recomendados
 let recommendedMapActivations = {};
 export function handleServerResponse(responseData) {
