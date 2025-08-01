@@ -511,12 +511,10 @@ function statistic() {
     console.log("📊 Função statistic() inicializada...");
 
     let tempoInicio = Date.now();
-    let mapasSelecionados = {};              // { mapa: tempo acumulado em ms }
-    let mapasAtivosTimestamp = {};           // { mapa: timestamp de ativação }
-    let recommendedMapActivations = {};      // { mapa: contagem de ativações }
-    let mapaAnteriorPorRecomendado = {};  // { "Mapa Recomendado": "Mapa Anterior" }
+    let mapasSelecionados = {};         // { mapa: tempo acumulado em ms }
+    let mapasAtivosTimestamp = {};      // { mapa: timestamp de ativação }
+    let mapaRecomendadoPorMapa = {};    // { mapaBase: mapaRecomendado }
     let ultimoMapaAtivado = null;
-
 
     // Gera um ID de sessão único se não existir
     let sessionId = sessionStorage.getItem("sessionId");
@@ -526,6 +524,7 @@ function statistic() {
     }
     console.log(`🆔 ID da sessão: ${sessionId}`);
 
+    // Função para ativar/desativar mapas
     function atualizarMapas(layerData, isChecked) {
         if (typeof layerData === "string") {
             try {
@@ -534,18 +533,17 @@ function statistic() {
                 console.error("❌ ERRO ao converter JSON:", error);
                 return;
             }
+            
         }
 
         const layerName = layerData.layer_name;
         const agora = Date.now();
 
-        // Inicializa se necessário
         if (!mapasSelecionados[layerName]) {
             mapasSelecionados[layerName] = 0;
         }
 
         if (!isChecked) {
-            // Desativou: calcula tempo e limpa timestamp
             if (mapasAtivosTimestamp[layerName]) {
                 const tempoAtivo = agora - mapasAtivosTimestamp[layerName];
                 mapasSelecionados[layerName] += tempoAtivo;
@@ -555,25 +553,23 @@ function statistic() {
             return;
         }
 
-        // Ativou: registra timestamp se ainda não tiver
+        // Marca início de ativação se ainda não tiver sido marcado
         if (!mapasAtivosTimestamp[layerName]) {
             mapasAtivosTimestamp[layerName] = agora;
             console.log(`🟢 Mapa "${layerName}" ativado em ${agora}`);
         }
 
-        // Se for recomendado
-         if (typeof recommendedLayersStats !== 'undefined' && recommendedLayersStats[layerName]) {
-        if (ultimoMapaAtivado && ultimoMapaAtivado !== layerName) {
-            mapaAnteriorPorRecomendado[layerName] = ultimoMapaAtivado;
-            console.log(`🔗 Mapa anterior a "${layerName}" foi "${ultimoMapaAtivado}"`);
-        }
-        recommendedMapActivations[layerName] = (recommendedMapActivations[layerName] || 0) + 1;
-        }
-
-        // Atualiza último ativado
         ultimoMapaAtivado = layerName;
     }
 
+    // Função global para registrar mapa recomendado pelo chat
+    window.registrarAtivacaoComRecomendacao = function(mapaBase, mapaRecomendado) {
+        console.log(`🤖 Ativação automática: ${mapaBase}, recomendando: ${mapaRecomendado}`);
+        mapaRecomendadoPorMapa[mapaBase] = mapaRecomendado;
+        updateStatistics({ layer_name: mapaBase }, true); // ativa o mapa base
+    };
+
+    // Expondo para uso global (usado por checkboxes)
     window.updateStatistics = atualizarMapas;
 
     // Monitora alterações nos checkboxes
@@ -592,24 +588,24 @@ function statistic() {
         }
     });
 
+    // Função de envio das estatísticas
     function enviarEstatisticas() {
         const agora = Date.now();
 
-        // Finaliza tempo dos mapas ainda ativos
+        // Finaliza tempos de mapas ainda ativos
         for (let mapa in mapasAtivosTimestamp) {
             const tempoAtivo = agora - mapasAtivosTimestamp[mapa];
             mapasSelecionados[mapa] = (mapasSelecionados[mapa] || 0) + tempoAtivo;
-            mapasAtivosTimestamp[mapa] = agora; // reinicia timestamp para próxima contagem
+            mapasAtivosTimestamp[mapa] = agora;
         }
 
         const tempoTotal = Math.round((agora - tempoInicio) / 1000); // em segundos
 
         const estatisticas = {
             session_id: sessionId,
-            mapas_selecionados: mapasSelecionados, // { mapa: tempo }
+            mapas_selecionados: mapasSelecionados,
             tempo_total: tempoTotal,
-            recommended_map_activations: recommendedMapActivations,
-            mapa_anterior_por_recomendado: mapaAnteriorPorRecomendado
+            mapa_recomendado_por_mapa: mapaRecomendadoPorMapa
         };
 
         console.log("📤 Enviando estatísticas:", estatisticas);
@@ -626,12 +622,10 @@ function statistic() {
         .catch((error) => console.error("❌ Erro ao enviar estatísticas:", error));
     }
 
-    // Envia estatísticas ao sair da página
+    // Envia ao sair da página
     window.addEventListener("beforeunload", enviarEstatisticas);
-
-    // (Opcional) envie a cada 30s:
-    // setInterval(enviarEstatisticas, 30000);
 }
+
 
 let recommendedLayersStats = {}; // Armazena mapas recomendados
 let recommendedMapActivations = {};
@@ -640,13 +634,19 @@ export function handleServerResponse(responseData) {
     const mapTypeData = responseData.find(item => item.custom && item.custom.map_type);
     const recommendationData = responseData.find(item => item.custom && item.custom.recommended_map);
 
-    if (recommendationData) {
+        if (recommendationData && mapTypeData) {
         const recommendedMap = recommendationData.custom.recommended_map.toLowerCase();
+        const mapType = mapTypeData.custom.map_type.toLowerCase();
         console.log(`📍 Mapa recomendado pelo chatbot: ${recommendedMap}`);
 
-        // Salva a recomendação para comparação futura
-        recommendedLayersStats[recommendedMap] = true;
+        // Salva no objeto que será enviado pela função statistic()
+        if (typeof window.registrarAtivacaoComRecomendacao === "function") {
+            window.registrarAtivacaoComRecomendacao(mapType, recommendedMap);
+        } else {
+            console.warn("⚠️ Função registrarAtivacaoComRecomendacao() não está disponível.");
+        }
     }
+
     
     if (mapTypeData) {
         const mapType = mapTypeData.custom.map_type.toLowerCase();
@@ -680,8 +680,7 @@ export function handleServerResponse(responseData) {
                     layerCheckbox.dispatchEvent(new Event("change"));
 
                     // Atualiza estatísticas
-                    window.updateStatistics(layerData, true);
-
+                  
                     // Adiciona a camada ao mapa
                     toggleLayer(window.map, layerData, true);
 

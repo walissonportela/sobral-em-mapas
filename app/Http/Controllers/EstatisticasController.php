@@ -12,43 +12,34 @@ class EstatisticasController extends Controller
     {
         Log::info("📩 Recebendo estatísticas...", ['request' => $request->all()]);
 
-        // 1. Validação dos dados
+        // 1. Validação dos dados esperados
         $request->validate([
             'session_id' => 'required|string|max:6',
             'mapas_selecionados' => 'required|array',
             'tempo_total' => 'required|integer',
-            'recommended_map_activations' => 'nullable|array',
-            'mapa_anterior_por_recomendado' => 'nullable|array',
+            'mapa_recomendado_por_mapa' => 'nullable|array',
         ]);
 
         // 2. Dados do request
         $sessionId = $request->input('session_id');
         $mapasSelecionados = $request->input('mapas_selecionados');
         $tempoTotal = $request->input('tempo_total');
-        $recommendedActivations = $request->input('recommended_map_activations', []);
-        $mapaAnteriorPorRecomendado = $request->input('mapa_anterior_por_recomendado', []);
+        $recomendados = $request->input('mapa_recomendado_por_mapa', []);
 
         Log::info("🆔 Sessão: $sessionId | ⏱ Tempo total: {$tempoTotal}s");
 
-        // 3. Salvar uma linha para cada mapa
+        // 3. Salvar uma linha por mapa ativado
         foreach ($mapasSelecionados as $mapa => $tempo) {
-            $recomendado = isset($recommendedActivations[$mapa]);
-            $mapaAnterior = $recomendado ? ($mapaAnteriorPorRecomendado[$mapa] ?? null) : null;
+            $mapaRecomendado = $recomendados[$mapa] ?? null;
 
-            // Garante que seja string, se por acaso vier array
-            if (is_array($mapaAnterior)) {
-                $mapaAnterior = reset($mapaAnterior);
-            }
-
-            Log::info("🗺 Salvando Mapa: {$mapa} | Tempo: {$tempo}ms | Recomendado: " . ($recomendado ? 'sim' : 'não') . " | Mapa anterior: " . ($mapaAnterior ?? 'nenhum'));
+            Log::info("🗺 Salvando Mapa: {$mapa} | Tempo: {$tempo}ms | Recomendou: " . ($mapaRecomendado ?? 'nenhum'));
 
             Estatistica::create([
                 'ip_usuario' => $sessionId,
                 'mapa' => $mapa,
                 'tempo' => (int) $tempo,
-                'recomendado' => $recomendado,
+                'mapa_recomendado' => $mapaRecomendado,
                 'tempo_total' => $tempoTotal,
-                'mapa_anterior' => $mapaAnterior,
             ]);
         }
 

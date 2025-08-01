@@ -10,13 +10,12 @@ class Estatistica extends Model
 
     protected $table = 'estatisticas';
 
-        protected $fillable = [
+       protected $fillable = [
         'ip_usuario',
         'mapa',
         'tempo',
-        'recomendado',
         'tempo_total',
-        'mapa_anterior',
+        'mapa_recomendado',
     ];
 
 
