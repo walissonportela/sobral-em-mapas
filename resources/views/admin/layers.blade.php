@@ -8,11 +8,17 @@
 @endsection
 
 @section('content_header')
-    <h1>Camadas</h1>
+    <h1><i class="fas fa-layer-group"></i> Camadas</h1>
 @endsection
 
 @section('css')
 <style>
+
+    h1 i {
+        margin-right: 8px;
+        color: #3c8dbc; /* uma cor legal pro ícone */
+    }
+
     .btn-close {
         position: absolute;
         top: 0.5rem;
@@ -68,9 +74,11 @@
         <!-- Card de criação de camada -->
         <div class="col-md-6">
             <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Criar Nova Camada</h3>
+                <div class="card-header bd-primary" style="background-color: #007bff; color: white; display: flex; align-items: center;">
+                    <i class="fas fa-plus" style="margin-right: 10px;"></i>
+                    <h3 class="card-title mb-0">Criar Nova Camada</h3>
                 </div>
+
                 <div class="card-body">
                     <!-- Formulário para criar camada -->
                     <form id="layer-form" action="{{ route('admin.layers.store') }}" method="POST" enctype="multipart/form-data">
@@ -175,7 +183,8 @@
         <!-- Card de lista de camadas -->
         <div class="col-md-6">
             <div class="card">
-                <div class="card-header">
+                <div class="card-header bg-secondary" style="color: white; display: flex; align-items: center;">
+                    <i class="fas fa-layer-group" style="margin-right: 10px;"></i>
                     <h3 class="card-title">Lista de Camadas</h3>
                 </div>
                 <div class="card-body">

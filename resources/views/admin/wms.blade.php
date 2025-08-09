@@ -8,7 +8,12 @@
 @endsection
 
 @section('content_header')
-    <h1>Camadas WMS</h1>
+    <div class="d-flex align-items-center justify-content-between">
+        <h1 class="mb-0">
+            <i class="fas fa-fw fa-globe"></i> 
+            Camadas WMS
+        </h1>
+    </div>
 @endsection
 
 @section('content')
@@ -17,9 +22,12 @@
         <!-- Card de criação de camada WMS -->
         <div class="col-md-6">
             <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Criar Nova Camada WMS</h3>
+               <div class="card-header d-flex align-items-center bg-primary">
+                    <h3 class="card-title mb-0">
+                        <i class="fas fa-plus me-2"></i> Criar Nova Camada WMS
+                    </h3>
                 </div>
+
                 <div class="card-body">
                     <!-- Formulário para criar camada WMS -->
                     <form id="wms-form" action="{{ route('admin.wms.store') }}" method="POST">
@@ -52,9 +60,13 @@
         <!-- Card de lista de camadas WMS -->
         <div class="col-md-6">
             <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Lista de Camadas WMS</h3>
+                <div class="card-header d-flex align-items-center bg-secondary">
+                    <h3 class="card-title mb-0">
+                        <i class="fas fa-layer-group me-2"></i> 
+                        Lista de Camadas WMS
+                    </h3>
                 </div>
+
                 <div class="card-body">
                     <ul class="list-group">
                     @foreach($wmsLinks as $wmsLink)
