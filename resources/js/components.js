@@ -6,6 +6,18 @@ export function InitializeComponents() {
     initializeSelectionBox();         // Caixa de seleção para exportação de imagem
     initializeResolutionWatcher();    // Observa mudanças de resolução
     initializeFloatingButton();       // Botão flutuante de medição
+    initializeChat();                 // Chat com assistente (caso aplicável)
+    initializeMeasure();              // Função de medição de distância/área
+    updateScaleInputFromMap();       // Atualiza campo de escala baseado na resolução
+}
+
+// ======================= CAIXA DE SELEÇÃO =========================
+
+// Inicializa componentes interativos do mapa
+export function InitializeComponents() {
+    initializeSelectionBox();         // Caixa de seleção para exportação de imagem
+    initializeResolutionWatcher();    // Observa mudanças de resolução
+    initializeFloatingButton();       // Botão flutuante de medição
     initializeMeasure();              // Função de medição de distância/área
     updateScaleInputFromMap();       // Atualiza campo de escala baseado na resolução
 }
@@ -22,22 +34,28 @@ function initializeSelectionBox() {
     const downloadButton = document.getElementById('download-button');
     const scaleInput = document.getElementById('scale');
 
+
     let isDragging = false;
     let startX, startY, offsetX, offsetY;
 
     // Alterna visibilidade da barra de seleção
+    // Alterna visibilidade da barra de seleção
     if (selectionButton && selectionTools) {
         selectionButton.addEventListener("click", function () {
             if (selectionTools.style.display === "none" || selectionTools.style.display === "") {
+            if (selectionTools.style.display === "none" || selectionTools.style.display === "") {
                 selectionButton.classList.add("active");
                 selectionTools.style.display = "block";
+                selectionTools.style.display = "block";
             } else {
+                selectionTools.style.display = "none";
                 selectionTools.style.display = "none";
                 selectionButton.classList.remove("active");
             }
         });
     }
 
+    // Atualiza dimensões da área de seleção (largura x altura)
     // Atualiza dimensões da área de seleção (largura x altura)
     function updateDimensions() {
         const width = selectionArea.offsetWidth;
@@ -46,6 +64,7 @@ function initializeSelectionBox() {
     }
 
     // Começa o arrasto da caixa ao clicar
+    // Começa o arrasto da caixa ao clicar
     dragHandle.addEventListener("mousedown", function (e) {
         isDragging = true;
         startX = e.clientX;
@@ -53,8 +72,10 @@ function initializeSelectionBox() {
         offsetX = selectionBox.offsetLeft;
         offsetY = selectionBox.offsetTop;
         e.preventDefault();
+        e.preventDefault();
     });
 
+    // Move a caixa de seleção durante o arrasto
     // Move a caixa de seleção durante o arrasto
     document.addEventListener("mousemove", function (e) {
         if (isDragging) {
@@ -66,14 +87,22 @@ function initializeSelectionBox() {
     });
 
     // Finaliza o arrasto ao soltar o mouse
+    // Finaliza o arrasto ao soltar o mouse
     document.addEventListener("mouseup", function () {
         isDragging = false;
+        updateDimensions();
         updateDimensions();
     });
 
     // Atualiza dimensões ao carregar a página
+    // Atualiza dimensões ao carregar a página
     updateDimensions();
 
+    // Atualiza dimensões ao redimensionar a caixa
+    const resizeObserver = new ResizeObserver(() => updateDimensions());
+    resizeObserver.observe(selectionBox);
+
+    // Exporta a área visível do mapa
     // Atualiza dimensões ao redimensionar a caixa
     const resizeObserver = new ResizeObserver(() => updateDimensions());
     resizeObserver.observe(selectionBox);
@@ -84,6 +113,7 @@ function initializeSelectionBox() {
     });
 
     // Atualiza o zoom com base no input da escala (com debounce)
+    // Atualiza o zoom com base no input da escala (com debounce)
     if (scaleInput) {
         const debouncedScaleUpdate = debounce(updateMapFromScaleInput, 400);
         scaleInput.addEventListener('input', debouncedScaleUpdate);
@@ -92,29 +122,39 @@ function initializeSelectionBox() {
 
 // ======================= BOTÃO FLUTUANTE =========================
 
+// ======================= BOTÃO FLUTUANTE =========================
+
 function initializeFloatingButton() {
     const floatingButton = document.getElementById("floating-button");
     const measureButton = document.getElementById("btn-measure");
 
+
     floatingButton.style.display = "none";
 
+    // Alterna visibilidade do botão flutuante
     // Alterna visibilidade do botão flutuante
     const toggleFloatingButtonVisibility = () => {
         floatingButton.style.display = floatingButton.style.display === "none" ? "block" : "none";
     };
 
     // Clique e toque ativam/desativam o botão flutuante
+    // Clique e toque ativam/desativam o botão flutuante
     measureButton.addEventListener("click", toggleFloatingButtonVisibility);
     measureButton.addEventListener("touchend", (e) => {
+        e.preventDefault();
         e.preventDefault();
         toggleFloatingButtonVisibility();
     });
 
     // Permite arrastar o botão flutuante na tela
+    // Permite arrastar o botão flutuante na tela
     function dragElement(el) {
+        let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
         let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
 
         const startDrag = (e) => {
+            if (e.target.closest(".dropdown-menu") || e.target.closest("select")) return;
+            e.preventDefault();
             if (e.target.closest(".dropdown-menu") || e.target.closest("select")) return;
             e.preventDefault();
             pos3 = e.type === "mousedown" ? e.clientX : e.touches[0].clientX;
@@ -127,6 +167,7 @@ function initializeFloatingButton() {
         };
 
         const elementDrag = (e) => {
+            e.preventDefault();
             e.preventDefault();
             pos1 = pos3 - (e.type === "mousemove" ? e.clientX : e.touches[0].clientX);
             pos2 = pos4 - (e.type === "mousemove" ? e.clientY : e.touches[0].clientY);
@@ -146,11 +187,26 @@ function initializeFloatingButton() {
 
         el.onmousedown = startDrag;
         el.ontouchstart = startDrag;
+        el.ontouchstart = startDrag;
     }
 
     if (floatingButton) {
         dragElement(floatingButton);
     }
+}
+
+// ======================= ESCALA E RESOLUÇÃO =========================
+
+const DPI = 96; // Dots per inch (usado na conversão)
+
+function resolutionToScale(resolution) {
+    return Math.round(resolution * DPI * 39.37);
+}
+
+function scaleToResolution(scale) {
+    return scale / (DPI * 39.37);
+}
+
 }
 
 // ======================= ESCALA E RESOLUÇÃO =========================
@@ -198,6 +254,29 @@ function debounce(func, wait) {
         clearTimeout(timeout);
         timeout = setTimeout(() => func.apply(this, args), wait);
     };
+function updateMapFromScaleInput() {
+    const scaleInput = document.getElementById('scale');
+    const scaleMin = 4514;
+    if (!scaleInput) return;
+
+    let scaleValue = parseFloat(scaleInput.value);
+    if (isNaN(scaleValue)) return;
+    if (scaleValue < scaleMin) {
+        scaleInput.value = scaleMin;
+        scaleValue = scaleMin;
+    }
+
+    const resolution = scaleToResolution(scaleValue);
+    const view = window.map.getView();
+    view.setResolution(resolution);
+}
+
+function debounce(func, wait) {
+    let timeout;
+    return function (...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
 }
 
 function initializeResolutionWatcher() {
@@ -221,6 +300,13 @@ function initializeResolutionWatcher() {
     view.on('change:resolution', updateUI);
 }
 
+// ======================= DROPDOWN PARA TOUCH =========================
+
+document.querySelector(".dropdown-toggle").addEventListener("touchend", function (event) {
+    event.stopPropagation();
+    let dropdown = new bootstrap.Dropdown(this);
+    dropdown.toggle();
+});
 // ======================= DROPDOWN PARA TOUCH =========================
 
 document.querySelector(".dropdown-toggle").addEventListener("touchend", function (event) {
