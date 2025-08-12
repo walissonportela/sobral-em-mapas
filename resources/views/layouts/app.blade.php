@@ -13,7 +13,7 @@
     <!-- Adiciona o CSS correto do OpenLayers (versão 6.13.0) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.6.1/ol.css">
     <link href="{{ asset('css/custom.css') }}" rel="stylesheet">
-    <meta name="theme-color" content="#0086de">
+    <meta name="theme-color" content="#005bb5">
 </head>
 <body>
     @include('partials.topbar')
