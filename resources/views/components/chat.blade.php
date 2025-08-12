@@ -19,7 +19,8 @@
     <div id="messages">
         <div class="welcome-message">
             <p><strong>Bem-vindo ao NaVISOL!</strong></p>
-            <p>Resolva as suas dúvidas.</p>
+
+             <p class="chat-hint">Tente perguntar sobre um destino, um ponto turístico ou simplesmente diga "olá".</p>
         </div>
         <hr>
         <div class="message received"></div>
