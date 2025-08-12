@@ -1,28 +1,44 @@
-<!-- resources/views/components/chat.blade.php -->
-<!-- Botão para mostrar o chat -->
-<button id="show-chat-button"><i class="fas fa-comment"></i>  <span> Chat - SobralMapas</span></button>
+<style>
+    /* Botão que abre o chat */
+    #show-chat-button img {
+        height: 28px; /* aumenta o tamanho */
+        position: relative;
+        top: -2px; /* sobe levemente */
+    }
+
+    /* Logo no cabeçalho do chat */
+    .chat-header .chat-title img {
+        height: 50px; /* aumenta o tamanho */
+        position: relative;
+        top: -4px; /* sobe levemente */
+    }
+</style>
+
+<button id="show-chat-button">
+    <img src="img/logo_t.png" alt="Logo NaVISOL">
+    <span> Chat - NaVISOL</span>
+</button>
 
 <div id="chat-container">
     <div class="chat-header">
         <div class="chat-title">
-            <i class="fas fa-comment"></i>
-            Chat - Sobral Mapas
+            <img src="img/logo_t.png" alt="Logo NaVISOL">
+            Chat - NaVISOL
         </div>
         <button id="toggle-chat-button">
             <i class="fas fa-times" id="toggle-icon"></i>
         </button>
     </div>
-    <!-- Área onde as mensagens aparecerão -->
+
     <div id="messages">
-        <!-- Mensagem de boas-vindas -->
         <div class="welcome-message">
-            <p><strong>Bem-vindo ao SobralMapas!</strong></p>
+            <p><strong>Bem-vindo ao NaVISOL!</strong></p>
             <p>Resolva as suas dúvidas.</p>
         </div>
         <hr>
         <div class="message received"></div>
     </div>
-    <!-- Caixa de input e botão de envio -->
+
     <div id="message-input-container">
         <input type="text" id="message-input" placeholder="Digite sua mensagem...">
         <button id="send-button">Enviar</button>
