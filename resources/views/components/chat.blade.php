@@ -1,18 +1,4 @@
-<style>
-    /* Botão que abre o chat */
-    #show-chat-button img {
-        height: 28px; /* aumenta o tamanho */
-        position: relative;
-        top: -2px; /* sobe levemente */
-    }
 
-    /* Logo no cabeçalho do chat */
-    .chat-header .chat-title img {
-        height: 50px; /* aumenta o tamanho */
-        position: relative;
-        top: -4px; /* sobe levemente */
-    }
-</style>
 
 <button id="show-chat-button">
     <img src="img/logo_t.png" alt="Logo NaVISOL">
