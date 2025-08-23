@@ -507,184 +507,153 @@ function initializeActionButtons() {
     });
 }
 function statistic() {
-    if (window.__statsStarted) return; // evita iniciar 2x
-    window.__statsStarted = true;
+  if (window.__statsStarted) return;        // evita iniciar 2x
+  window.__statsStarted = true;
 
-    console.log("📊 Função statistic() inicializada...");
+  console.log("📊 Função statistic() inicializada...");
 
-    const ENDPOINT = `${window.location.origin}/sobralmapas/public/api/estatisticas`;
-    const FLUSH_MS = 15000; // envio a cada 15s (pode aumentar p/ 30s)
+  const ENDPOINT = `${window.location.origin}/sobralmapas/public/api/estatisticas`;
+  const FLUSH_MS = 15000;                   // 🔁 envia de 15 em 15s
 
-    let tempoInicio = Date.now();
-    let mapasSelecionados = {};         // { mapa: tempo acumulado em ms }
-    let mapasAtivosTimestamp = {};      // { mapa: timestamp de ativação }
-    let mapaRecomendadoPorMapa = {};    // { mapaBase: mapaRecomendado }
-    let ultimoMapaAtivado = null;
+  let tempoInicio = Date.now();
+  let mapasSelecionados = {};
+  let mapasAtivosTimestamp = {};
+  let mapaRecomendadoPorMapa = {};
+  let ultimoMapaAtivado = null;
 
-    // ID de sessão
-    let sessionId = sessionStorage.getItem("sessionId");
-    if (!sessionId) {
-        sessionId = Math.floor(100000 + Math.random() * 900000).toString();
-        sessionStorage.setItem("sessionId", sessionId);
+  let sessionId = sessionStorage.getItem("sessionId");
+  if (!sessionId) {
+    sessionId = Math.floor(100000 + Math.random() * 900000).toString();
+    sessionStorage.setItem("sessionId", sessionId);
+  }
+  console.log(`🆔 ID da sessão: ${sessionId}`);
+
+  function atualizarMapas(layerData, isChecked) {
+    if (typeof layerData === "string") {
+      try { layerData = JSON.parse(layerData); }
+      catch { try { layerData = JSON.parse(JSON.parse(layerData)); } catch { return; } }
     }
-    console.log(`🆔 ID da sessão: ${sessionId}`);
+    const layerName = layerData.layer_name;
+    const agora = Date.now();
 
-    // Ativar/desativar mapas
-    function atualizarMapas(layerData, isChecked) {
-        if (typeof layerData === "string") {
-            try {
-                layerData = JSON.parse(layerData);
-            } catch (error) {
-                console.error("❌ ERRO ao converter JSON:", error);
-                return;
-            }
-        }
+    if (!mapasSelecionados[layerName]) mapasSelecionados[layerName] = 0;
 
-        const layerName = layerData.layer_name;
-        const agora = Date.now();
-
-        if (!mapasSelecionados[layerName]) {
-            mapasSelecionados[layerName] = 0;
-        }
-
-        if (!isChecked) {
-            if (mapasAtivosTimestamp[layerName]) {
-                const tempoAtivo = agora - mapasAtivosTimestamp[layerName];
-                mapasSelecionados[layerName] += tempoAtivo;
-                console.log(`🕒 Mapa "${layerName}" desmarcado. Tempo acumulado: ${mapasSelecionados[layerName]}ms`);
-                delete mapasAtivosTimestamp[layerName];
-            }
-            return;
-        }
-
-        if (!mapasAtivosTimestamp[layerName]) {
-            mapasAtivosTimestamp[layerName] = agora;
-            console.log(`🟢 Mapa "${layerName}" ativado em ${agora}`);
-        }
-        ultimoMapaAtivado = layerName;
+    if (!isChecked) {
+      if (mapasAtivosTimestamp[layerName]) {
+        const tempoAtivo = agora - mapasAtivosTimestamp[layerName];
+        mapasSelecionados[layerName] += tempoAtivo;
+        console.log(`🕒 Mapa "${layerName}" desmarcado. Tempo acumulado: ${mapasSelecionados[layerName]}ms`);
+        delete mapasAtivosTimestamp[layerName];
+      }
+      return;
     }
 
-    // Globais
-    window.registrarAtivacaoComRecomendacao = function(mapaBase, mapaRecomendado) {
-        console.log(`🤖 Ativação automática: ${mapaBase}, recomendando: ${mapaRecomendado}`);
-        mapaRecomendadoPorMapa[mapaBase] = mapaRecomendado;
-        updateStatistics({ layer_name: mapaBase }, true);
+    if (!mapasAtivosTimestamp[layerName]) {
+      mapasAtivosTimestamp[layerName] = agora;
+      console.log(`🟢 Mapa "${layerName}" ativado em ${agora}`);
+    }
+
+    ultimoMapaAtivado = layerName;
+  }
+
+  window.updateStatistics = atualizarMapas;
+  window.registrarAtivacaoComRecomendacao = function(mapaBase, mapaRecomendado) {
+    console.log(`🤖 Ativação automática: ${mapaBase}, recomendando: ${mapaRecomendado}`);
+    mapaRecomendadoPorMapa[mapaBase] = mapaRecomendado;
+    updateStatistics({ layer_name: mapaBase }, true);
+  };
+
+  document.addEventListener("change", function (event) {
+    if (event.target.classList.contains("layer-toggle")) {
+      const rawData = event.target.getAttribute("data-layer");
+      if (!rawData) return;
+      try {
+        const layerData = JSON.parse(JSON.parse(rawData));
+        atualizarMapas(layerData, event.target.checked);
+        console.log(`🛠 Camada "${layerData.layer_name}" foi ${event.target.checked ? "selecionada" : "desmarcada"}`);
+      } catch (e) {
+        console.error("❌ Erro ao processar camada:", e);
+      }
+    }
+  });
+
+  function montarPayload() {
+    const agora = Date.now();
+    // fecha tempos dos mapas ativos
+    for (const mapa in mapasAtivosTimestamp) {
+      const tempoAtivo = agora - mapasAtivosTimestamp[mapa];
+      mapasSelecionados[mapa] = (mapasSelecionados[mapa] || 0) + tempoAtivo;
+      mapasAtivosTimestamp[mapa] = agora;
+    }
+    const tempoTotal = Math.round((agora - tempoInicio) / 1000);
+    return {
+      session_id: sessionId,
+      mapas_selecionados: mapasSelecionados,
+      tempo_total: tempoTotal,
+      mapa_recomendado_por_mapa: mapaRecomendadoPorMapa
     };
-    window.updateStatistics = atualizarMapas;
+  }
 
-    // Listener dos checkboxes
-    document.addEventListener("change", function (event) {
-        if (event.target.classList.contains("layer-toggle")) {
-            let rawData = event.target.getAttribute("data-layer");
-            if (!rawData) return;
-            try {
-                let layerData = JSON.parse(JSON.parse(rawData)); // JSON duplo
-                atualizarMapas(layerData, event.target.checked);
-                console.log(`🛠 Camada "${layerData.layer_name}" foi ${event.target.checked ? "selecionada" : "desmarcada"}`);
-            } catch (e) {
-                console.error("❌ Erro ao processar camada:", e);
-            }
-        }
-    });
+  let enviando = false;
+  async function enviarEstatisticas() {
+    if (enviando) return;
+    const estatisticas = montarPayload();
 
-    // ===== helpers de envio =====
-    function montarPayload() {
-        const agora = Date.now();
-        // fecha tempos ativos
-        for (let mapa in mapasAtivosTimestamp) {
-            const tempoAtivo = agora - mapasAtivosTimestamp[mapa];
-            mapasSelecionados[mapa] = (mapasSelecionados[mapa] || 0) + tempoAtivo;
-            mapasAtivosTimestamp[mapa] = agora;
-        }
-        const tempoTotal = Math.round((agora - tempoInicio) / 1000);
-
-        return {
-            session_id: sessionId,
-            mapas_selecionados: mapasSelecionados,
-            tempo_total: tempoTotal,
-            mapa_recomendado_por_mapa: mapaRecomendadoPorMapa
-        };
+    // 🔒 não envia se não há mapas (evita 422)
+    if (!estatisticas.mapas_selecionados || Object.keys(estatisticas.mapas_selecionados).length === 0) {
+      // console.log("⏭️ Sem mapas selecionados — não enviar.");
+      return;
     }
 
-    function temDadosParaEnviar(payload) {
-        return payload.mapas_selecionados && Object.keys(payload.mapas_selecionados).length > 0;
+    enviando = true;
+    console.log("📤 Enviando estatísticas (periódico):", estatisticas);
+
+    try {
+      const res = await fetch(ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify(estatisticas),
+        keepalive: true
+      });
+      const text = await res.text();
+      try { console.log("✅ Estatísticas enviadas:", JSON.parse(text)); }
+      catch { console.log("ℹ️ Resposta:", text); }
+    } catch (error) {
+      console.warn("⚠️ Falha no envio periódico:", error);
+    } finally {
+      enviando = false;
     }
+  }
 
-    // tenta beacon; se falhar, tenta fetch keepalive (sem await)
-    function enviarAoSair() {
-        const payload = montarPayload();
-        if (!temDadosParaEnviar(payload)) {
-            console.log("⏭️ Sem mapas selecionados — não enviar no unload.");
-            return;
-        }
+  // 🔁 envia durante o uso (não depende da saída)
+  setInterval(enviarEstatisticas, FLUSH_MS);
 
-        let ok = false;
-        try {
-            if (navigator.sendBeacon) {
-                const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
-                ok = navigator.sendBeacon(ENDPOINT, blob);
-            }
-        } catch (e) {
-            console.warn("sendBeacon exception:", e);
-        }
-
-        if (!ok) {
-            try {
-                fetch(ENDPOINT, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", "Accept": "application/json" },
-                    body: JSON.stringify(payload),
-                    keepalive: true
-                }).catch(() => {});
-            } catch {}
-        }
+  // (opcional) backup ao sair — útil em mobile
+  function enviarAoSair() {
+    const payload = montarPayload();
+    if (!payload.mapas_selecionados || Object.keys(payload.mapas_selecionados).length === 0) return;
+    let ok = false;
+    try {
+      if (navigator.sendBeacon) {
+        ok = navigator.sendBeacon(ENDPOINT, new Blob([JSON.stringify(payload)], { type: "application/json" }));
+      }
+    } catch {}
+    if (!ok) {
+      try {
+        fetch(ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify(payload),
+          keepalive: true
+        }).catch(() => {});
+      } catch {}
     }
-
-    let enviando = false;
-    async function enviarEstatisticas() {
-        if (enviando) return;
-        const payload = montarPayload();
-        if (!temDadosParaEnviar(payload)) return; // evita 422 no backend
-
-        console.log("📤 Enviando estatísticas (periódico):", payload);
-        enviando = true;
-        try {
-            const res = await fetch(ENDPOINT, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "Accept": "application/json" },
-                body: JSON.stringify(payload),
-                keepalive: true
-            });
-            const text = await res.text();
-            try {
-                const data = JSON.parse(text);
-                console.log("✅ Estatísticas enviadas:", data);
-            } catch {
-                console.log("ℹ️ Resposta do servidor:", text);
-            }
-        } catch (error) {
-            console.warn("⚠️ Falha ao enviar (periódico):", error);
-        } finally {
-            enviando = false;
-        }
-    }
-
-    // ===== eventos de saída (versão que funciona no mobile) =====
-    let finalizou = false;
-    function flushFinalUmaVez() {
-        if (finalizou) return;
-        finalizou = true;
-        enviarAoSair();
-    }
-    window.addEventListener("pagehide", flushFinalUmaVez, { capture: true });          // ✅ iOS/Android
-    document.addEventListener("visibilitychange", () => {                               // ✅ quando vira background
-        if (document.visibilityState === "hidden") flushFinalUmaVez();
-    });
-    window.addEventListener("beforeunload", flushFinalUmaVez);                          // desktop/backup
-
-    // ===== flush periódico para não depender só do unload =====
-    setInterval(enviarEstatisticas, FLUSH_MS);
+  }
+  window.addEventListener("pagehide", enviarAoSair, { capture: true });
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") enviarAoSair(); });
+  window.addEventListener("beforeunload", enviarAoSair);
 }
+
 
 
 let recommendedLayersStats = {}; // Armazena mapas recomendados
