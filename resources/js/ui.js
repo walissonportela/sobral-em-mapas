@@ -620,6 +620,7 @@ function statistic() {
         .then((response) => response.json())
         .then((data) => console.log("✅ Estatísticas enviadas:", data))
         .catch((error) => console.error("❌ Erro ao enviar estatísticas:", error));
+        debugger; 
     }
 
     // Envia ao sair da página
