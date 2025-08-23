@@ -916,7 +916,7 @@ export function InitializeUI() {
     statistic();
     initializeLayerToggles();
     initializeSearch();
-    toggleFullScreen();
+    //toggleFullScreen();
     initializeExpandButton();
     //enableSwipeToDeleteAccordion("accordionMapasAtivos");
     initializeActionButtons();
