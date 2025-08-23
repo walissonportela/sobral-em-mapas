@@ -506,9 +506,14 @@ function initializeActionButtons() {
         btnCamadas.classList.remove("active");
     });
 }
-
 function statistic() {
+    if (window.__statsStarted) return; // evita iniciar 2x
+    window.__statsStarted = true;
+
     console.log("📊 Função statistic() inicializada...");
+
+    const ENDPOINT = `${window.location.origin}/sobralmapas/public/api/estatisticas`;
+    const FLUSH_MS = 15000; // envio a cada 15s (pode aumentar p/ 30s)
 
     let tempoInicio = Date.now();
     let mapasSelecionados = {};         // { mapa: tempo acumulado em ms }
@@ -516,7 +521,7 @@ function statistic() {
     let mapaRecomendadoPorMapa = {};    // { mapaBase: mapaRecomendado }
     let ultimoMapaAtivado = null;
 
-    // Gera um ID de sessão único se não existir
+    // ID de sessão
     let sessionId = sessionStorage.getItem("sessionId");
     if (!sessionId) {
         sessionId = Math.floor(100000 + Math.random() * 900000).toString();
@@ -524,7 +529,7 @@ function statistic() {
     }
     console.log(`🆔 ID da sessão: ${sessionId}`);
 
-    // Função para ativar/desativar mapas
+    // Ativar/desativar mapas
     function atualizarMapas(layerData, isChecked) {
         if (typeof layerData === "string") {
             try {
@@ -533,7 +538,6 @@ function statistic() {
                 console.error("❌ ERRO ao converter JSON:", error);
                 return;
             }
-            
         }
 
         const layerName = layerData.layer_name;
@@ -553,31 +557,26 @@ function statistic() {
             return;
         }
 
-        // Marca início de ativação se ainda não tiver sido marcado
         if (!mapasAtivosTimestamp[layerName]) {
             mapasAtivosTimestamp[layerName] = agora;
             console.log(`🟢 Mapa "${layerName}" ativado em ${agora}`);
         }
-
         ultimoMapaAtivado = layerName;
     }
 
-    // Função global para registrar mapa recomendado pelo chat
+    // Globais
     window.registrarAtivacaoComRecomendacao = function(mapaBase, mapaRecomendado) {
         console.log(`🤖 Ativação automática: ${mapaBase}, recomendando: ${mapaRecomendado}`);
         mapaRecomendadoPorMapa[mapaBase] = mapaRecomendado;
-        updateStatistics({ layer_name: mapaBase }, true); // ativa o mapa base
+        updateStatistics({ layer_name: mapaBase }, true);
     };
-
-    // Expondo para uso global (usado por checkboxes)
     window.updateStatistics = atualizarMapas;
 
-    // Monitora alterações nos checkboxes
+    // Listener dos checkboxes
     document.addEventListener("change", function (event) {
         if (event.target.classList.contains("layer-toggle")) {
             let rawData = event.target.getAttribute("data-layer");
             if (!rawData) return;
-
             try {
                 let layerData = JSON.parse(JSON.parse(rawData)); // JSON duplo
                 atualizarMapas(layerData, event.target.checked);
@@ -588,43 +587,103 @@ function statistic() {
         }
     });
 
-    // Função de envio das estatísticas
-    function enviarEstatisticas() {
+    // ===== helpers de envio =====
+    function montarPayload() {
         const agora = Date.now();
-
-        // Finaliza tempos de mapas ainda ativos
+        // fecha tempos ativos
         for (let mapa in mapasAtivosTimestamp) {
             const tempoAtivo = agora - mapasAtivosTimestamp[mapa];
             mapasSelecionados[mapa] = (mapasSelecionados[mapa] || 0) + tempoAtivo;
             mapasAtivosTimestamp[mapa] = agora;
         }
+        const tempoTotal = Math.round((agora - tempoInicio) / 1000);
 
-        const tempoTotal = Math.round((agora - tempoInicio) / 1000); // em segundos
-
-        const estatisticas = {
+        return {
             session_id: sessionId,
             mapas_selecionados: mapasSelecionados,
             tempo_total: tempoTotal,
             mapa_recomendado_por_mapa: mapaRecomendadoPorMapa
         };
-
-        console.log("📤 Enviando estatísticas:", estatisticas);
-
-        fetch(`${window.location.origin}/sobralmapas/public/api/estatisticas`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(estatisticas),
-        })
-        .then((response) => response.json())
-        .then((data) => console.log("✅ Estatísticas enviadas:", data))
-        .catch((error) => console.error("❌ Erro ao enviar estatísticas:", error));
-        debugger; 
     }
 
-    // Envia ao sair da página
-    window.addEventListener("beforeunload", enviarEstatisticas);
+    function temDadosParaEnviar(payload) {
+        return payload.mapas_selecionados && Object.keys(payload.mapas_selecionados).length > 0;
+    }
+
+    // tenta beacon; se falhar, tenta fetch keepalive (sem await)
+    function enviarAoSair() {
+        const payload = montarPayload();
+        if (!temDadosParaEnviar(payload)) {
+            console.log("⏭️ Sem mapas selecionados — não enviar no unload.");
+            return;
+        }
+
+        let ok = false;
+        try {
+            if (navigator.sendBeacon) {
+                const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+                ok = navigator.sendBeacon(ENDPOINT, blob);
+            }
+        } catch (e) {
+            console.warn("sendBeacon exception:", e);
+        }
+
+        if (!ok) {
+            try {
+                fetch(ENDPOINT, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                    body: JSON.stringify(payload),
+                    keepalive: true
+                }).catch(() => {});
+            } catch {}
+        }
+    }
+
+    let enviando = false;
+    async function enviarEstatisticas() {
+        if (enviando) return;
+        const payload = montarPayload();
+        if (!temDadosParaEnviar(payload)) return; // evita 422 no backend
+
+        console.log("📤 Enviando estatísticas (periódico):", payload);
+        enviando = true;
+        try {
+            const res = await fetch(ENDPOINT, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                body: JSON.stringify(payload),
+                keepalive: true
+            });
+            const text = await res.text();
+            try {
+                const data = JSON.parse(text);
+                console.log("✅ Estatísticas enviadas:", data);
+            } catch {
+                console.log("ℹ️ Resposta do servidor:", text);
+            }
+        } catch (error) {
+            console.warn("⚠️ Falha ao enviar (periódico):", error);
+        } finally {
+            enviando = false;
+        }
+    }
+
+    // ===== eventos de saída (versão que funciona no mobile) =====
+    let finalizou = false;
+    function flushFinalUmaVez() {
+        if (finalizou) return;
+        finalizou = true;
+        enviarAoSair();
+    }
+    window.addEventListener("pagehide", flushFinalUmaVez, { capture: true });          // ✅ iOS/Android
+    document.addEventListener("visibilitychange", () => {                               // ✅ quando vira background
+        if (document.visibilityState === "hidden") flushFinalUmaVez();
+    });
+    window.addEventListener("beforeunload", flushFinalUmaVez);                          // desktop/backup
+
+    // ===== flush periódico para não depender só do unload =====
+    setInterval(enviarEstatisticas, FLUSH_MS);
 }
 
 
