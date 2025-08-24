@@ -12,7 +12,7 @@ class ChatbotAdapter
     public function __construct()
     {
         // Defina a URL do chatbot
-        $this->baseUrl = 'https://24ec-34-9-209-216.ngrok-free.app/webhooks/rest/webhook';
+        $this->baseUrl = 'https://7d1d41028b6a.ngrok-free.app/webhooks/rest/webhook';
     }
 
     public function sendMessageToChatbot($message, $sender)
