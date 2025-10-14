@@ -773,12 +773,60 @@ function updateMapFromScaleInput() {
     view.setResolution(resolution);
 }
 
+// Função que inicia a sidebar
+function initializeSidebar() {
+    // Botões que alternam as "views" (Camadas e Mapas Ativos)
+    const btnCamadas = document.getElementById("btn-camadas");
+    const btnMapasAtivos = document.getElementById("btn-mapas-ativos");
+    const viewCamadas = document.getElementById("view-camadas");
+    const viewMapasAtivos = document.getElementById("view-mapas-ativos");
 
+    // Outros botões da action-bar que não trocam de view
+    const btnMeasure = document.getElementById("btn-measure");
+    // Adicione outros botões da action-bar aqui se necessário (ex: #btn-imprimir)
 
+    // Agrupa todos os botões que podem ficar "ativos"
+    const actionButtons = [btnCamadas, btnMapasAtivos, btnMeasure];
 
+    // Função para limpar a classe 'active' de todos os botões
+    function clearActiveStates() {
+        actionButtons.forEach(btn => {
+            if (btn) btn.classList.remove("active");
+        });
+    }
+
+    if (btnCamadas && viewCamadas && viewMapasAtivos) {
+        btnCamadas.addEventListener("click", function () {
+            viewCamadas.style.display = "block";
+            viewMapasAtivos.style.display = "none";
+            clearActiveStates();
+            btnCamadas.classList.add("active");
+        });
+    }
+
+    if (btnMapasAtivos && viewCamadas && viewMapasAtivos) {
+        btnMapasAtivos.addEventListener("click", function () {
+            viewCamadas.style.display = "none";
+            viewMapasAtivos.style.display = "block";
+            clearActiveStates();
+            btnMapasAtivos.classList.add("active");
+        });
+    }
+
+    // A lógica do botão de medir agora também gerencia o estado 'active'
+    if (btnMeasure) {
+        btnMeasure.addEventListener("click", function() {
+            // A função initializeFloatingButton já controla a visibilidade do pop-up
+            // Aqui, apenas gerenciamos o estado visual do botão
+            clearActiveStates();
+            btnMeasure.classList.add("active");
+        });
+    }
+}
 
 
 export function InitializeComponents() {
+    initializeSidebar();
     initializeSelectionBox();
     initializeResolutionWatcher();
     initializeFloatingButton();
